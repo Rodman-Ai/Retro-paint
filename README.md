@@ -148,25 +148,27 @@ Retro-paint/
 
 ## Deploying
 
-This repo deploys to **GitHub Pages** via a GitHub Actions workflow that
-publishes the static site to a `gh-pages` branch. The workflow lives at
+This repo deploys to **GitHub Pages** via a GitHub Actions workflow that uses
+the official `actions/deploy-pages` flow. The workflow lives at
 `.github/workflows/deploy.yml` and runs on every push to `main` or this
 development branch (and via manual `workflow_dispatch`).
 
 ### One-time setup (repo owner, ~30 seconds)
 
-1. Wait for the **Deploy to GitHub Pages** workflow to run once successfully
-   (it will create the `gh-pages` branch).
-2. Open **Settings → Pages** in the GitHub repo.
-3. Under **Build and deployment**, set:
-   - **Source**: *Deploy from a branch*
-   - **Branch**: `gh-pages` / `(root)`
-4. Save. The site appears at
-   `https://rodman-ai.github.io/Retro-paint/` within a minute or two.
+1. Open **Settings → Pages** in the GitHub repo.
+2. Under **Build and deployment**, set **Source** to **GitHub Actions**.
+3. Push (or re-run the workflow from the **Actions** tab).
 
-That's it. Subsequent pushes auto-rebuild and push to `gh-pages`; Pages
-re-publishes within seconds. The workflow only needs `contents: write`
-permission and the default `GITHUB_TOKEN` — no PAT, no third-party action.
+That's it. Subsequent pushes auto-deploy to
+`https://rodman-ai.github.io/Retro-paint/`. The deploy URL also appears at
+the top of every successful run.
+
+The workflow has two jobs:
+
+- **build** — checks out the repo, copies only the deployable files
+  (`index.html`, `styles.css`, `js/`, `.nojekyll`) into `_site/`, then
+  uploads the directory as a Pages artifact.
+- **deploy** — calls `actions/deploy-pages@v4` to publish the artifact.
 
 ### Deploying somewhere else
 
