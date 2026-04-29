@@ -8,37 +8,39 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
-  group: pages
+  group: pages-deploy
   cancel-in-progress: false
 
 jobs:
   deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
-        with:
-          # Auto-enable GitHub Pages (with "GitHub Actions" source)
-          # on the first run so the deploy step doesn't fail when
-          # Pages hasn't been turned on in repo Settings yet.
-          enablement: true
+      - name: Publish static site to gh-pages branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
 
-      - name: Upload site as artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: '.'
+          # Stage only the deployable files (no .git, no .github, no README).
+          workdir="$(mktemp -d)"
+          cp -r index.html styles.css js .nojekyll "$workdir"/
 
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          cd "$workdir"
+          git init -q -b gh-pages
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Deploy ${GITHUB_SHA::7} from ${GITHUB_REF_NAME}"
+
+          remote="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push -f "$remote" gh-pages
+
+          echo "Published commit ${GITHUB_SHA::7} to gh-pages."
+          echo "Pages URL (after Settings → Pages → Source = 'Deploy from a branch: gh-pages /(root)'):"
+          echo "  https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY##*/}/"
