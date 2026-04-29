@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="theme-color" content="#008080">
+  <title>Retro Paint — MS Paint 95 · Mario Paint · Kid Pix</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23008080'/%3E%3Crect x='3' y='3' width='10' height='10' fill='%23fff'/%3E%3Crect x='5' y='5' width='2' height='2' fill='%23f00'/%3E%3Crect x='9' y='5' width='2' height='2' fill='%2300f'/%3E%3Crect x='7' y='9' width='2' height='2' fill='%23ff0'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="mode-mspaint">
+  <div class="app">
+    <header class="app-header">
+      <div class="brand">
+        <span class="brand-icon">🎨</span>
+        <span class="brand-text">Retro Paint</span>
+      </div>
+      <nav class="mode-switch" role="tablist" aria-label="Choose paint mode">
+        <button data-mode="mspaint" class="mode-btn is-active" role="tab" aria-selected="true">MS Paint 95</button>
+        <button data-mode="mariopaint" class="mode-btn" role="tab" aria-selected="false">Mario Paint</button>
+        <button data-mode="kidpix" class="mode-btn" role="tab" aria-selected="false">Kid Pix</button>
+      </nav>
+      <div class="header-actions">
+        <button id="btn-undo" title="Undo (Ctrl+Z)" aria-label="Undo">↶ Undo</button>
+        <button id="btn-clear" title="Clear canvas" aria-label="Clear">✕ Clear</button>
+        <button id="btn-save" title="Save as PNG (Ctrl+S)" aria-label="Save">💾 Save</button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <aside class="tools-panel">
+        <div id="tools" class="tools-grid"></div>
+        <div class="size-picker">
+          <label for="brush-size">Size</label>
+          <input id="brush-size" type="range" min="1" max="32" value="4">
+          <span id="brush-size-display">4</span>
+        </div>
+      </aside>
+
+      <section class="canvas-area">
+        <div class="canvas-frame">
+          <div class="canvas-titlebar" id="canvas-titlebar">
+            <span id="canvas-title">untitled — Paint</span>
+            <span class="titlebar-buttons">
+              <span class="tb-btn">_</span>
+              <span class="tb-btn">▢</span>
+              <span class="tb-btn">×</span>
+            </span>
+          </div>
+          <div class="canvas-stage">
+            <canvas id="canvas" width="640" height="480" aria-label="Drawing canvas"></canvas>
+          </div>
+        </div>
+        <div class="status-bar" id="status-bar">
+          <span id="status-tool">Pencil</span>
+          <span id="status-pos">0, 0</span>
+          <span id="status-mode">MS Paint 95</span>
+        </div>
+      </section>
+
+      <aside class="palette-panel">
+        <div class="palette-current">
+          <div class="palette-swatch primary" id="primary-swatch" title="Primary color"></div>
+          <div class="palette-swatch secondary" id="secondary-swatch" title="Secondary color"></div>
+        </div>
+        <div id="palette" class="palette-grid"></div>
+      </aside>
+    </main>
+  </div>
+
+  <div id="splash" class="splash" hidden>
+    <div class="splash-content"><div class="splash-text"></div></div>
+  </div>
+
+  <script src="js/sounds.js"></script>
+  <script src="js/modes.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
