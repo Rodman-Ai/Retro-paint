@@ -31,6 +31,11 @@
         <button id="btn-save" title="Save PNG (Ctrl+S — Shift-click to upscale)" aria-label="Save">💾 Save</button>
         <button id="btn-filter" title="Image filters" aria-label="Filters">🎛️ FX</button>
         <button id="btn-replay" title="Replay last drawing" aria-label="Replay">▶ Replay</button>
+        <span class="zoom-group" role="group" aria-label="Zoom">
+          <button id="btn-zoom-out" title="Zoom out (-)">−</button>
+          <button id="btn-zoom-reset" title="Reset zoom (0)">100%</button>
+          <button id="btn-zoom-in" title="Zoom in (+)">+</button>
+        </span>
         <button id="btn-help" title="Help (?)" aria-label="Help">?</button>
         <button id="btn-mute" title="Mute sound (M)" aria-label="Mute">🔊</button>
       </div>
@@ -57,12 +62,6 @@
         <div class="symmetry-picker">
           <label>Grid</label>
           <button id="btn-grid" title="Toggle pixel grid (G)" aria-label="Grid">⊞ Off</button>
-        </div>
-        <div class="symmetry-picker">
-          <label>Zoom</label>
-          <button id="btn-zoom-out" title="Zoom out (-)">−</button>
-          <button id="btn-zoom-in" title="Zoom in (+)">+</button>
-          <button id="btn-zoom-reset" title="Reset zoom (0)">100%</button>
         </div>
       </aside>
 

@@ -46,8 +46,22 @@ button { font: inherit; cursor: pointer; }
   flex-direction: column;
   padding: 6px;
   gap: 6px;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.35) transparent;
 }
+.tools-panel::-webkit-scrollbar,
+.palette-panel::-webkit-scrollbar { width: 6px; }
+.tools-panel::-webkit-scrollbar-thumb,
+.palette-panel::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 3px;
+}
+.tools-panel::-webkit-scrollbar-track,
+.palette-panel::-webkit-scrollbar-track { background: transparent; }
+.zoom-group { display: inline-flex; gap: 2px; }
+.zoom-group button { min-width: 30px; padding: 2px 6px; }
 .tools-grid {
   display: grid;
   grid-template-columns: repeat(2, 38px);

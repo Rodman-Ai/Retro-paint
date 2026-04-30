@@ -568,6 +568,47 @@
     return out;
   }
 
+  // Per-stamp sound overrides
+  const STAMP_SOUNDS = {
+    mariopaint: {
+      mushroom: 'marioPowerUp',
+      oneUp: 'marioPowerUp',
+      star: 'marioStarHit',
+      heart: 'kpDing',
+      flower: 'marioJump',
+      yoshi: 'marioYoshiTongue',
+      bowser: 'marioBowser',
+      coin: 'marioCoin',
+      note: 'noteFreq',
+      ghost: 'marioGhost',
+      koopaShell: 'marioJump',
+      bobOmb: 'marioBobOmb',
+      piranha: 'marioFireball',
+      pipe: 'marioPipe',
+      fireFlower: 'marioFireball',
+      smile: 'kpDing'
+    },
+    kidpix: {
+      sun: 'kpDing',
+      cat: 'kpQuack',
+      house: 'kpHonk',
+      tree: 'kpBubble',
+      ufo: 'kpLaser',
+      rocket: 'kpWhoosh',
+      fish: 'kpBubble',
+      bird: 'kpQuack',
+      butterfly: 'kpSparkle',
+      balloon: 'kpBoing',
+      gift: 'kpDing',
+      cupcake: 'kpDing',
+      pizza: 'kpHonk',
+      snowman: 'kpFizz',
+      robot: 'kpLaser',
+      smiley: 'kpBoing',
+      star2: 'kpSparkle'
+    }
+  };
+
   function dropStamp(p) {
     const set = state.activeStampSet || (state.mode === 'kidpix' ? 'kidpix' : 'mariopaint');
     const stamps = PaintModes.stamps[set];
@@ -576,7 +617,12 @@
     if (!s) return;
     const scale = Math.max(2, Math.round(state.size * 0.8) + 2);
     PaintModes.drawStamp(ctx, s, p.x, p.y, scale);
-    Sounds.stampPlop();
+    const sfxName = (STAMP_SOUNDS[set] || {})[state.activeStamp];
+    if (sfxName && typeof Sounds[sfxName] === 'function') {
+      Sounds[sfxName]();
+    } else {
+      Sounds.stampPlop();
+    }
   }
 
   // ---- Special effects ----

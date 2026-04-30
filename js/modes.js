@@ -124,7 +124,108 @@
       "YBBYYYYBBY",
       " YBBBBBBY ",
       "  YYYYYY  "
-    ], { Y: '#ffe55c', B: '#000000' })
+    ], { Y: '#ffe55c', B: '#000000' }),
+
+    ghost: makeStamp([
+      "  WWWWWW  ",
+      " WWWWWWWW ",
+      "WWBWWWWBWW",
+      "WWBWWWWBWW",
+      "WWWWWWWWWW",
+      "WRRWWWWRRW",
+      "WWWWWWWWWW",
+      "WWWWWWWWWW",
+      "WWWWWWWWWW",
+      "W WW WW WW"
+    ], { W: '#ffffff', B: '#000000', R: '#ff66aa' }),
+
+    bowser: makeStamp([
+      "  GGGGGG  ",
+      " GGGGGGGG ",
+      "GGYYYYYYGG",
+      "GYWBBBBWYG",
+      "GYYBBBBYYG",
+      "GGRRRRRRGG",
+      " GRRRRRRG ",
+      " GGGGGGGG ",
+      "  GG  GG  "
+    ], { G: '#33aa33', Y: '#ffe066', W: '#ffffff', B: '#000000', R: '#ff5500' }),
+
+    fireFlower: makeStamp([
+      "   RYR   ",
+      "  YRYRY  ",
+      " RYBYBYR ",
+      "YRBYRYBRY",
+      " RYBYBYR ",
+      "  YRYRY  ",
+      "   RYR   ",
+      "   GGG   ",
+      "  GGGGG  "
+    ], { R: '#ff3300', Y: '#ffd700', B: '#000000', G: '#33aa33' }),
+
+    oneUp: makeStamp([
+      "  GGGGGGG  ",
+      " GWWGGGWWG ",
+      "GWWWGGGWWWG",
+      "GGGGGGGGGGG",
+      "GGWWGGGWWGG",
+      " KKKWWWKKK ",
+      " KFFFFFFFK ",
+      " KFKFFKFFK ",
+      "  KFFFFFK  ",
+      "  KKKKKKK  "
+    ], { G: '#33cc33', W: '#ffffff', K: '#000000', F: '#ffd9b3' }),
+
+    koopaShell: makeStamp([
+      "  KKKKKK  ",
+      " KGGGGGGK ",
+      "KGYYYYYYGK",
+      "KGYGGGGYGK",
+      "KGYGYYGYGK",
+      "KGYGYYGYGK",
+      "KGYGGGGYGK",
+      "KGYYYYYYGK",
+      " KKKKKKKK "
+    ], { K: '#000000', G: '#33aa33', Y: '#ffe066' }),
+
+    bobOmb: makeStamp([
+      "    YY    ",
+      "   YYYY   ",
+      "  KKKKKK  ",
+      " KKKKKKKK ",
+      "KKWKKKKKKK",
+      "KWWKKKKKKK",
+      "KKKKKKKKKK",
+      " KKKKKKKK ",
+      "  KKKKKK  ",
+      "  YY  YY  "
+    ], { Y: '#ffd700', K: '#1a1a1a', W: '#ffffff' }),
+
+    piranha: makeStamp([
+      "  RRWWWRR  ",
+      " RWWWWWWWR ",
+      "RWWKWWKWWWR",
+      "RWKWWKKKWWR",
+      "RWWWKKKWWWR",
+      " RWWWWWWWR ",
+      "  RRWWWRR  ",
+      "    GGG    ",
+      "    GGG    ",
+      "   GGGGG   "
+    ], { R: '#ff3344', W: '#ffffff', K: '#000000', G: '#33aa33' }),
+
+    pipe: makeStamp([
+      "GGGGGGGGGG",
+      "GWWWWWWWWG",
+      "GWGGGGGGWG",
+      "GGGGGGGGGG",
+      " GGGGGGGG ",
+      " GWGGGGWG ",
+      " GGGGGGGG ",
+      " GGGGGGGG ",
+      " GWGGGGWG ",
+      " GGGGGGGG "
+    ], { G: '#33aa33', W: '#88ee88' })
   };
 
   // ---- Kid Pix stamps ----
@@ -208,7 +309,130 @@
       "..MMMMM..",
       ".MM...MM.",
       "M.......M"
-    ], { M: '#ff66ff' })
+    ], { M: '#ff66ff' }),
+
+    rocket: makeStamp([
+      "...R...",
+      "..RWR..",
+      ".RWWWR.",
+      ".RWBWR.",
+      ".RWWWR.",
+      ".RYRYR.",
+      "RR.R.RR",
+      "Y..R..Y",
+      "...Y..."
+    ], { R: '#cc2233', W: '#ffffff', B: '#3366ff', Y: '#ffcc00' }),
+
+    fish: makeStamp([
+      "...BBBBB..",
+      "..BBBBBBB.",
+      ".BBBBBBBBO",
+      "BBKBBBBBOO",
+      "BBBBBBBBBO",
+      ".BBBBBBBB.",
+      "..BBBBBBB.",
+      "...BBBBB..",
+      ".....OO..."
+    ], { B: '#33ccff', K: '#000000', O: '#ff8800' }),
+
+    bird: makeStamp([
+      "...BBBB...",
+      "..BBBBBBB.",
+      ".BBKBBBBBO",
+      ".BBBBBBBBO",
+      ".BBBBBBBB.",
+      "..BBBBBB..",
+      "...K..K...",
+      "...K..K..."
+    ], { B: '#3366ff', K: '#000000', O: '#ffcc00' }),
+
+    balloon: makeStamp([
+      "  RRRRRR  ",
+      " RWRRRRRR ",
+      "RWWRRRRRRR",
+      "RWRRRRRRRR",
+      "RRRRRRRRRR",
+      "RRRRRRRRRR",
+      " RRRRRRRR ",
+      "  RRRRRR  ",
+      "    RR    ",
+      "    KK    ",
+      "    KK    "
+    ], { R: '#ff3333', W: '#ffaaaa', K: '#000000' }),
+
+    gift: makeStamp([
+      "...RRRRR...",
+      "..R.RRR.R..",
+      "PPPPPPPPPPP",
+      "PRRRRRRRRRP",
+      "PRRRRRRRRRP",
+      "PRRRRRRRRRP",
+      "PRRRRRRRRRP",
+      "PRRRRRRRRRP",
+      "PPPPPPPPPPP"
+    ], { R: '#cc2244', P: '#ffd700' }),
+
+    cupcake: makeStamp([
+      "...P.P.P...",
+      "..PPPPPPP..",
+      ".PWPWPWPWP.",
+      "PPPPPPPPPPP",
+      "BBBBBBBBBBB",
+      "BWBWBWBWBWB",
+      "BBBBBBBBBBB",
+      ".BBBBBBBBB.",
+      "..BBBBBBB.."
+    ], { P: '#ff66cc', W: '#ffffff', B: '#cc8844' }),
+
+    butterfly: makeStamp([
+      "..PP....PP..",
+      ".PPPP..PPPP.",
+      "PPPPPPPPPPPP",
+      "PPYYPPPPYYPP",
+      "PPPPPPKPPPPP",
+      ".PPPPPKPPPPP",
+      "..PPPPKPPPP.",
+      "...PPPKPPP..",
+      "....PPKPP..."
+    ], { P: '#aa44ff', Y: '#ffcc00', K: '#000000' }),
+
+    snowman: makeStamp([
+      "...WWWWW...",
+      "..WWKKKWW..",
+      ".WKWKWKWKW.",
+      ".WWWWKWWWW.",
+      "..WWWWWWW..",
+      "..WWWWWWW..",
+      ".WWWWWWWWW.",
+      "WWKWKWKWKWW",
+      "WWWWWWWWWWW",
+      "WWWWWWWWWWW",
+      ".WWWWWWWWW."
+    ], { W: '#ffffff', K: '#000000' }),
+
+    pizza: makeStamp([
+      "..YYYYYYY..",
+      ".YOOYOOYOOY",
+      ".YOOYOOYOOY",
+      "YOOOOOOOOOY",
+      "YOOOYOOYOOY",
+      "YOOOYOOYOOY",
+      "YOOOOOOOOOY",
+      ".YOOYOOYOOY",
+      "..YYYYYYY..",
+      "...YYYYY..."
+    ], { Y: '#ffcc66', O: '#cc3322' }),
+
+    robot: makeStamp([
+      ".KKKKKKKKK.",
+      ".KGGGGGGGK.",
+      ".KGRGGGRGK.",
+      ".KGGGKGGGK.",
+      ".KGGKKKGGK.",
+      ".KKKKKKKKK.",
+      "KKBBBBBBBKK",
+      "K..KKKKK..K"
+    ], { K: '#888888', G: '#cccccc', R: '#ff3333', B: '#444444' })
   };
 
   // ---- Palettes ----
@@ -272,12 +496,20 @@
       { id: 'gradient', label: 'Gradient', icon: '🌈', shortcut: 'g' },
       { id: 'text', label: 'Text', icon: 'T', shortcut: 't' },
       { id: 'stamp:mushroom', label: 'Mushroom', icon: '🍄', kind: 'stamp', stamp: 'mushroom' },
+      { id: 'stamp:oneUp',    label: '1-Up',     icon: '🍀', kind: 'stamp', stamp: 'oneUp' },
       { id: 'stamp:star',     label: 'Star',     icon: '⭐', kind: 'stamp', stamp: 'star' },
+      { id: 'stamp:fireFlower', label: 'Fire Flower', icon: '🔥', kind: 'stamp', stamp: 'fireFlower' },
       { id: 'stamp:heart',    label: 'Heart',    icon: '❤️', kind: 'stamp', stamp: 'heart' },
       { id: 'stamp:flower',   label: 'Flower',   icon: '🌸', kind: 'stamp', stamp: 'flower' },
       { id: 'stamp:yoshi',    label: 'Yoshi',    icon: '🦖', kind: 'stamp', stamp: 'yoshi' },
+      { id: 'stamp:bowser',   label: 'Bowser',   icon: '👹', kind: 'stamp', stamp: 'bowser' },
       { id: 'stamp:coin',     label: 'Coin',     icon: '🪙', kind: 'stamp', stamp: 'coin' },
       { id: 'stamp:note',     label: 'Note',     icon: '🎼', kind: 'stamp', stamp: 'note' },
+      { id: 'stamp:ghost',    label: 'Boo',      icon: '👻', kind: 'stamp', stamp: 'ghost' },
+      { id: 'stamp:koopaShell', label: 'Shell',  icon: '🛡️', kind: 'stamp', stamp: 'koopaShell' },
+      { id: 'stamp:bobOmb',   label: 'Bob-omb',  icon: '💣', kind: 'stamp', stamp: 'bobOmb' },
+      { id: 'stamp:piranha',  label: 'Piranha',  icon: '🌶️', kind: 'stamp', stamp: 'piranha' },
+      { id: 'stamp:pipe',     label: 'Pipe',     icon: '🟢', kind: 'stamp', stamp: 'pipe' },
       { id: 'stamp:smile',    label: 'Smile',    icon: '😊', kind: 'stamp', stamp: 'smile' }
     ],
     kidpix: [
@@ -296,13 +528,23 @@
       { id: 'eraser', label: 'Eraser', icon: '🧽', shortcut: 'e' },
       { id: 'dynamite', label: 'Dynamite!', icon: '🧨', kind: 'action', action: 'dynamite' },
       { id: 'ohno', label: 'Oh No!', icon: '😱', kind: 'action', action: 'ohno' },
-      { id: 'stamp:sun',    label: 'Sun',    icon: '☀️', kind: 'stamp', stamp: 'sun', stampSet: 'kidpix' },
-      { id: 'stamp:cat',    label: 'Cat',    icon: '🐱', kind: 'stamp', stamp: 'cat', stampSet: 'kidpix' },
-      { id: 'stamp:house',  label: 'House',  icon: '🏠', kind: 'stamp', stamp: 'house', stampSet: 'kidpix' },
-      { id: 'stamp:tree',   label: 'Tree',   icon: '🌳', kind: 'stamp', stamp: 'tree', stampSet: 'kidpix' },
-      { id: 'stamp:ufo',    label: 'UFO',    icon: '🛸', kind: 'stamp', stamp: 'ufo', stampSet: 'kidpix' },
-      { id: 'stamp:smiley', label: 'Smiley', icon: '🙂', kind: 'stamp', stamp: 'smiley', stampSet: 'kidpix' },
-      { id: 'stamp:star2',  label: 'Pop★',   icon: '🌟', kind: 'stamp', stamp: 'star2', stampSet: 'kidpix' }
+      { id: 'stamp:sun',       label: 'Sun',       icon: '☀️', kind: 'stamp', stamp: 'sun',       stampSet: 'kidpix' },
+      { id: 'stamp:cat',       label: 'Cat',       icon: '🐱', kind: 'stamp', stamp: 'cat',       stampSet: 'kidpix' },
+      { id: 'stamp:house',     label: 'House',     icon: '🏠', kind: 'stamp', stamp: 'house',     stampSet: 'kidpix' },
+      { id: 'stamp:tree',      label: 'Tree',      icon: '🌳', kind: 'stamp', stamp: 'tree',      stampSet: 'kidpix' },
+      { id: 'stamp:ufo',       label: 'UFO',       icon: '🛸', kind: 'stamp', stamp: 'ufo',       stampSet: 'kidpix' },
+      { id: 'stamp:rocket',    label: 'Rocket',    icon: '🚀', kind: 'stamp', stamp: 'rocket',    stampSet: 'kidpix' },
+      { id: 'stamp:fish',      label: 'Fish',      icon: '🐠', kind: 'stamp', stamp: 'fish',      stampSet: 'kidpix' },
+      { id: 'stamp:bird',      label: 'Bird',      icon: '🐦', kind: 'stamp', stamp: 'bird',      stampSet: 'kidpix' },
+      { id: 'stamp:butterfly', label: 'Butterfly', icon: '🦋', kind: 'stamp', stamp: 'butterfly', stampSet: 'kidpix' },
+      { id: 'stamp:balloon',   label: 'Balloon',   icon: '🎈', kind: 'stamp', stamp: 'balloon',   stampSet: 'kidpix' },
+      { id: 'stamp:gift',      label: 'Gift',      icon: '🎁', kind: 'stamp', stamp: 'gift',      stampSet: 'kidpix' },
+      { id: 'stamp:cupcake',   label: 'Cupcake',   icon: '🧁', kind: 'stamp', stamp: 'cupcake',   stampSet: 'kidpix' },
+      { id: 'stamp:pizza',     label: 'Pizza',     icon: '🍕', kind: 'stamp', stamp: 'pizza',     stampSet: 'kidpix' },
+      { id: 'stamp:snowman',   label: 'Snowman',   icon: '⛄', kind: 'stamp', stamp: 'snowman',   stampSet: 'kidpix' },
+      { id: 'stamp:robot',     label: 'Robot',     icon: '🤖', kind: 'stamp', stamp: 'robot',     stampSet: 'kidpix' },
+      { id: 'stamp:smiley',    label: 'Smiley',    icon: '🙂', kind: 'stamp', stamp: 'smiley',    stampSet: 'kidpix' },
+      { id: 'stamp:star2',     label: 'Pop★',      icon: '🌟', kind: 'stamp', stamp: 'star2',     stampSet: 'kidpix' }
     ]
   };
 

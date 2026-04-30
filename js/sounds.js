@@ -132,6 +132,102 @@
     click() {
       if (!this.enabled) return;
       tone(1200, 0.03, 'square', 0.1);
+    },
+
+    // ---- Mario stamp sounds ----
+    marioCoin() {
+      if (!this.enabled) return;
+      tone(987.77, 0.08, 'square', 0.16);
+      setTimeout(() => tone(1318.51, 0.18, 'square', 0.16), 80);
+    },
+    marioPowerUp() {
+      if (!this.enabled) return;
+      const notes = [392, 523, 659, 784, 1046];
+      notes.forEach((f, i) => setTimeout(() => tone(f, 0.06, 'square', 0.14), i * 40));
+    },
+    marioJump() {
+      if (!this.enabled) return;
+      sweep(440, 880, 0.16, 'square', 0.14);
+    },
+    marioStarHit() {
+      if (!this.enabled) return;
+      const notes = [880, 988, 1175, 1397, 1568];
+      notes.forEach((f, i) => setTimeout(() => tone(f, 0.05, 'square', 0.13), i * 30));
+    },
+    marioFireball() {
+      if (!this.enabled) return;
+      sweep(1200, 200, 0.18, 'sawtooth', 0.18);
+      noiseBurst(0.12, 0.1, 1500);
+    },
+    marioYoshiTongue() {
+      if (!this.enabled) return;
+      sweep(800, 1400, 0.08, 'square', 0.14);
+      setTimeout(() => sweep(1400, 800, 0.08, 'square', 0.14), 80);
+    },
+    marioPipe() {
+      if (!this.enabled) return;
+      sweep(880, 220, 0.22, 'sawtooth', 0.18);
+    },
+    marioGhost() {
+      if (!this.enabled) return;
+      // Spooky descending tone
+      sweep(660, 220, 0.5, 'sine', 0.16);
+    },
+    marioBowser() {
+      if (!this.enabled) return;
+      tone(110, 0.18, 'sawtooth', 0.22);
+      setTimeout(() => tone(82, 0.22, 'sawtooth', 0.22), 120);
+    },
+    marioBobOmb() {
+      if (!this.enabled) return;
+      // Tick-tick then bang
+      tone(800, 0.04, 'square', 0.12);
+      setTimeout(() => tone(800, 0.04, 'square', 0.12), 120);
+      setTimeout(() => { sweep(600, 60, 0.3, 'sawtooth', 0.22); noiseBurst(0.3, 0.18, 1800); }, 260);
+    },
+
+    // ---- Kid Pix extra SFX ----
+    kpHonk() {
+      if (!this.enabled) return;
+      tone(220, 0.12, 'square', 0.2);
+      setTimeout(() => tone(165, 0.18, 'square', 0.18), 90);
+    },
+    kpSparkle() {
+      if (!this.enabled) return;
+      const notes = [1568, 1760, 1976, 2349];
+      notes.forEach((f, i) => setTimeout(() => tone(f, 0.04, 'triangle', 0.1), i * 25));
+    },
+    kpWhoosh() {
+      if (!this.enabled) return;
+      noiseBurst(0.28, 0.16, 2000);
+      sweep(1200, 200, 0.28, 'sawtooth', 0.1);
+    },
+    kpFizz() {
+      if (!this.enabled) return;
+      noiseBurst(0.4, 0.12, 5000);
+    },
+    kpBoing() {
+      if (!this.enabled) return;
+      sweep(120, 720, 0.18, 'square', 0.18);
+      setTimeout(() => sweep(720, 480, 0.16, 'square', 0.16), 100);
+    },
+    kpLaser() {
+      if (!this.enabled) return;
+      sweep(2000, 200, 0.2, 'sawtooth', 0.16);
+    },
+    kpQuack() {
+      if (!this.enabled) return;
+      sweep(900, 350, 0.15, 'sawtooth', 0.18);
+    },
+    kpBubble() {
+      if (!this.enabled) return;
+      tone(1500, 0.05, 'sine', 0.14);
+      setTimeout(() => tone(900, 0.07, 'sine', 0.12), 50);
+    },
+    kpDing() {
+      if (!this.enabled) return;
+      tone(1760, 0.18, 'triangle', 0.12);
+      setTimeout(() => tone(2349, 0.18, 'triangle', 0.1), 60);
     }
   };
 
