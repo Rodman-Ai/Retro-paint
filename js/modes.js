@@ -257,7 +257,11 @@
       { id: 'rect', label: 'Rect', icon: '▭', shortcut: 'r' },
       { id: 'rectFill', label: 'Rect•', icon: '▬' },
       { id: 'ellipse', label: 'Oval', icon: '◯', shortcut: 'o' },
-      { id: 'ellipseFill', label: 'Oval•', icon: '⬤' }
+      { id: 'ellipseFill', label: 'Oval•', icon: '⬤' },
+      { id: 'gradient', label: 'Gradient', icon: '🌈', shortcut: 'g' },
+      { id: 'smudge', label: 'Smudge', icon: '👆' },
+      { id: 'text', label: 'Text', icon: 'T', shortcut: 't' },
+      { id: 'select', label: 'Select', icon: '⬚', shortcut: 'a' }
     ],
     mariopaint: [
       { id: 'musicpencil', label: 'Music Pencil', icon: '🎵', shortcut: 'p' },
@@ -265,6 +269,8 @@
       { id: 'eraser', label: 'Eraser', icon: '🧽', shortcut: 'e' },
       { id: 'fill', label: 'Bucket', icon: '🪣', shortcut: 'f' },
       { id: 'spray', label: 'Spray', icon: '💨', shortcut: 's' },
+      { id: 'gradient', label: 'Gradient', icon: '🌈', shortcut: 'g' },
+      { id: 'text', label: 'Text', icon: 'T', shortcut: 't' },
       { id: 'stamp:mushroom', label: 'Mushroom', icon: '🍄', kind: 'stamp', stamp: 'mushroom' },
       { id: 'stamp:star',     label: 'Star',     icon: '⭐', kind: 'stamp', stamp: 'star' },
       { id: 'stamp:heart',    label: 'Heart',    icon: '❤️', kind: 'stamp', stamp: 'heart' },
@@ -284,6 +290,9 @@
       { id: 'brush', label: 'Brush', icon: '🖌️', shortcut: 'b' },
       { id: 'spray', label: 'Spray', icon: '💨', shortcut: 's' },
       { id: 'fill',  label: 'Mixer', icon: '🪣', shortcut: 'f' },
+      { id: 'gradient', label: 'Gradient', icon: '🌈', shortcut: 'g' },
+      { id: 'smudge', label: 'Smudge', icon: '👆' },
+      { id: 'text', label: 'Text', icon: 'T', shortcut: 't' },
       { id: 'eraser', label: 'Eraser', icon: '🧽', shortcut: 'e' },
       { id: 'dynamite', label: 'Dynamite!', icon: '🧨', kind: 'action', action: 'dynamite' },
       { id: 'ohno', label: 'Oh No!', icon: '😱', kind: 'action', action: 'ohno' },

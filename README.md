@@ -65,27 +65,42 @@ Then open `http://localhost:8000`. You can also just double-click
 - **Oh No!** — full-screen splash text, then clear.
 
 ### Cross-cutting features
-- HTML5 Canvas at a logical 640 × 480, scaled responsively while keeping a
-  4 : 3 aspect ratio.
-- Pointer Events for unified mouse / touch / pen / stylus input.
+- HTML5 Canvas (default 640 × 480, resizable via **New canvas** dialog) with
+  responsive aspect-ratio-preserving scale.
+- Pointer Events for unified mouse / touch / pen / stylus input, with
+  **stylus pressure** mapped to brush width.
 - **Undo + Redo** with 16-step history (`Ctrl+Z`, `Ctrl+Shift+Z` or `Ctrl+Y`).
 - **Open Image** — load any PNG/JPG into the canvas to trace, color, or remix.
-- Save current canvas as a PNG (`Ctrl+S` or click 💾 Save).
-- **Live brush-size cursor preview** that follows the pointer.
-- **Symmetry / mirror mode** — cycle Off → H → V → Both for freehand tools,
-  including wacky brushes and stamps.
-- **Shift-constrain** — hold Shift while dragging a shape tool to get a
-  perfect square / circle, or 0/45/90° lines.
-- **Tool hotkeys** — single-letter shortcuts per mode (e.g. P/B/E/F/L/R/O…).
-- **Sound mute** toggle (M), persisted across sessions.
-- **Autosave** — your drawing is saved to localStorage 1.5 s after every
-  stroke; reloads ask if you'd like to restore it.
+- **Save PNG** (`Ctrl+S`) — Shift-click for HD export at any scale.
+- **Live brush cursor preview** sized to your current brush.
+- **Recent colors** strip — last 12 colors you used, persisted.
+- **Custom HSV color picker** with hue / saturation / value sliders (click
+  the big swatches; right-click for the OS picker).
+- **Brush opacity slider** (5–100%).
+- **Symmetry / mirror** — Off → H → V → Both → 4-way → 8-way kaleidoscope,
+  applies to freehand tools, wacky brushes, and stamps.
+- **Shift-constrain** — perfect squares, circles, and 0/45/90° lines.
+- **Pixel grid** overlay toggle (G) for pixel-art work.
+- **Pan & zoom** — Ctrl/Cmd + scroll wheel to zoom (also `+` / `−` / `0`),
+  hold Space and drag (or middle-click) to pan.
+- **Image filters** — invert, grayscale, sepia, posterize, blur, brighten,
+  darken (FX button).
+- **Gradient fill** tool — linear gradient using primary → secondary.
+- **Smudge brush** — pick up nearby pixels and drag them.
+- **Text tool** — click the canvas, type, drop styled text.
+- **Rectangular selection** — drag a rect, then drag inside it to move; press
+  Delete to clear.
+- **Stroke replay** — re-draw your last session's strokes in real time.
+- **Animation flipbook** — Shift + F opens a frame strip with prev / next /
+  add / delete / play and **onion-skin** preview.
+- **Background patterns** behind the canvas — none, grid, dots, graph paper,
+  ruled lines, blueprint (cycle with `V`).
+- **Tool hotkeys** — single-letter shortcuts per mode.
+- **Sound mute** toggle (M), persisted.
+- **Autosave** — debounced 1.5 s after every stroke; reloads offer to restore.
 - **Installable PWA** with offline support (manifest + service worker).
-- **Last-used mode** and brush size persist across sessions.
-- Brush size slider (1–32 px).
-- Primary + secondary color swatches (Shift- or right-click any palette
-  color to set the secondary).
-- Click the big primary/secondary swatch to open a full OS color picker.
+- **Last-used mode**, brush size, opacity, recent colors all persist.
+- **Reset all** — Shift-click ✕ Clear to wipe stored state and reload.
 - Web Audio synth for every sound — no audio assets to ship.
 
 ---

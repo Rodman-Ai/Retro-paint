@@ -25,9 +25,13 @@
       <div class="header-actions">
         <button id="btn-undo" title="Undo (Ctrl+Z)" aria-label="Undo">↶ Undo</button>
         <button id="btn-redo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo">↷ Redo</button>
+        <button id="btn-new" title="New canvas" aria-label="New">📄 New</button>
         <button id="btn-clear" title="Clear canvas" aria-label="Clear">✕ Clear</button>
         <button id="btn-open" title="Open image" aria-label="Open">📂 Open</button>
-        <button id="btn-save" title="Save as PNG (Ctrl+S)" aria-label="Save">💾 Save</button>
+        <button id="btn-save" title="Save PNG (Ctrl+S — Shift-click to upscale)" aria-label="Save">💾 Save</button>
+        <button id="btn-filter" title="Image filters" aria-label="Filters">🎛️ FX</button>
+        <button id="btn-replay" title="Replay last drawing" aria-label="Replay">▶ Replay</button>
+        <button id="btn-help" title="Help (?)" aria-label="Help">?</button>
         <button id="btn-mute" title="Mute sound (M)" aria-label="Mute">🔊</button>
       </div>
       <input id="file-input" type="file" accept="image/*" hidden>
@@ -41,9 +45,24 @@
           <input id="brush-size" type="range" min="1" max="32" value="4">
           <span id="brush-size-display">4</span>
         </div>
+        <div class="size-picker">
+          <label for="brush-opacity">Alpha</label>
+          <input id="brush-opacity" type="range" min="5" max="100" value="100">
+          <span id="brush-opacity-display">100</span>
+        </div>
         <div class="symmetry-picker">
           <label>Mirror</label>
           <button id="btn-symmetry" title="Toggle symmetry mirror (Y)" aria-label="Symmetry">⌒ Off</button>
+        </div>
+        <div class="symmetry-picker">
+          <label>Grid</label>
+          <button id="btn-grid" title="Toggle pixel grid (G)" aria-label="Grid">⊞ Off</button>
+        </div>
+        <div class="symmetry-picker">
+          <label>Zoom</label>
+          <button id="btn-zoom-out" title="Zoom out (-)">−</button>
+          <button id="btn-zoom-in" title="Zoom in (+)">+</button>
+          <button id="btn-zoom-reset" title="Reset zoom (0)">100%</button>
         </div>
       </aside>
 
@@ -75,12 +94,35 @@
           <div class="palette-swatch secondary" id="secondary-swatch" title="Secondary color"></div>
         </div>
         <div id="palette" class="palette-grid"></div>
+        <div class="recent-label">Recent</div>
+        <div id="recent-colors" class="palette-grid"></div>
       </aside>
     </main>
   </div>
 
   <div id="splash" class="splash" hidden>
     <div class="splash-content"><div class="splash-text"></div></div>
+  </div>
+
+  <div id="anim-bar" class="anim-bar" hidden>
+    <button id="anim-prev" title="Previous frame">⟨</button>
+    <span id="anim-frame">1 / 1</span>
+    <button id="anim-next" title="Next frame">⟩</button>
+    <button id="anim-add" title="Add frame">+</button>
+    <button id="anim-del" title="Delete frame">−</button>
+    <button id="anim-play" title="Play animation">▶</button>
+    <label class="anim-onion"><input id="anim-onion" type="checkbox"> Onion</label>
+  </div>
+
+  <div id="modal" class="modal" hidden>
+    <div class="modal-card">
+      <div class="modal-title" id="modal-title">Title</div>
+      <div class="modal-body" id="modal-body"></div>
+      <div class="modal-actions">
+        <button id="modal-ok">OK</button>
+        <button id="modal-cancel">Cancel</button>
+      </div>
+    </div>
   </div>
 
   <script src="js/sounds.js"></script>
