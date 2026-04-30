@@ -80,6 +80,25 @@ button { font: inherit; cursor: pointer; }
 }
 .size-picker input { width: 76px; }
 
+.symmetry-picker {
+  margin-top: 4px;
+  display: flex; flex-direction: column; gap: 4px;
+  align-items: center; font-size: 11px;
+}
+.symmetry-picker button { font-size: 11px; padding: 3px 6px; }
+
+#brush-cursor {
+  position: fixed;
+  pointer-events: none;
+  border: 1.5px solid rgba(0, 0, 0, 0.7);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.6);
+  border-radius: 50%;
+  display: none;
+  z-index: 50;
+}
+#btn-mute { min-width: 30px; }
+#btn-redo[disabled], #btn-undo[disabled] { opacity: 0.5; cursor: not-allowed; }
+
 .canvas-area {
   display: flex;
   flex-direction: column;

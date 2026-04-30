@@ -27,7 +27,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p _site
-          cp index.html styles.css .nojekyll _site/
+          cp index.html styles.css .nojekyll manifest.webmanifest sw.js icon.svg _site/
           cp -r js _site/js
 
       - name: Configure Pages

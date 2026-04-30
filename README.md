@@ -68,8 +68,20 @@ Then open `http://localhost:8000`. You can also just double-click
 - HTML5 Canvas at a logical 640 × 480, scaled responsively while keeping a
   4 : 3 aspect ratio.
 - Pointer Events for unified mouse / touch / pen / stylus input.
-- 16-step undo history (`Ctrl+Z`).
+- **Undo + Redo** with 16-step history (`Ctrl+Z`, `Ctrl+Shift+Z` or `Ctrl+Y`).
+- **Open Image** — load any PNG/JPG into the canvas to trace, color, or remix.
 - Save current canvas as a PNG (`Ctrl+S` or click 💾 Save).
+- **Live brush-size cursor preview** that follows the pointer.
+- **Symmetry / mirror mode** — cycle Off → H → V → Both for freehand tools,
+  including wacky brushes and stamps.
+- **Shift-constrain** — hold Shift while dragging a shape tool to get a
+  perfect square / circle, or 0/45/90° lines.
+- **Tool hotkeys** — single-letter shortcuts per mode (e.g. P/B/E/F/L/R/O…).
+- **Sound mute** toggle (M), persisted across sessions.
+- **Autosave** — your drawing is saved to localStorage 1.5 s after every
+  stroke; reloads ask if you'd like to restore it.
+- **Installable PWA** with offline support (manifest + service worker).
+- **Last-used mode** and brush size persist across sessions.
 - Brush size slider (1–32 px).
 - Primary + secondary color swatches (Shift- or right-click any palette
   color to set the secondary).
@@ -94,13 +106,20 @@ Then open `http://localhost:8000`. You can also just double-click
 | Tap **Oh No!**                              | Splash text, then clear               |
 
 ### Keyboard shortcuts
-| Key                  | Action                          |
-| -------------------- | ------------------------------- |
-| `1`                  | Switch to MS Paint 95           |
-| `2`                  | Switch to Mario Paint           |
-| `3`                  | Switch to Kid Pix               |
-| `Ctrl/Cmd + Z`       | Undo                            |
-| `Ctrl/Cmd + S`       | Save canvas as PNG              |
+| Key                       | Action                                    |
+| ------------------------- | ----------------------------------------- |
+| `1` / `2` / `3`           | Switch to MS Paint / Mario Paint / Kid Pix|
+| `Ctrl/Cmd + Z`            | Undo                                      |
+| `Ctrl/Cmd + Shift + Z`    | Redo (also `Ctrl + Y`)                    |
+| `Ctrl/Cmd + S`            | Save canvas as PNG                        |
+| `Ctrl/Cmd + O`            | Open image                                |
+| `M`                       | Mute / unmute sound                       |
+| `Y`                       | Cycle symmetry mirror (Off → H → V → Both)|
+| `P` / `B` / `E` / `F`     | Pencil / Brush / Eraser / Fill            |
+| `K`                       | Color picker (eyedropper)                 |
+| `S`                       | Spray                                     |
+| `L` / `R` / `O`           | Line / Rectangle / Oval (MS Paint mode)   |
+| Hold `Shift` while drawing| Constrain shape (square, circle, 45° line)|
 
 ---
 
@@ -108,8 +127,11 @@ Then open `http://localhost:8000`. You can also just double-click
 
 ```
 Retro-paint/
-├── index.html               # Page shell (~3 KB)
-├── styles.css               # Layout + 3 themed stylesheets (~12 KB)
+├── index.html               # Page shell
+├── styles.css               # Layout + 3 themed stylesheets
+├── manifest.webmanifest     # PWA manifest (installable app)
+├── sw.js                    # Service worker (offline cache)
+├── icon.svg                 # PWA icon
 ├── js/
 │   ├── app.js               # Canvas engine, tools, mode switching
 │   ├── modes.js             # Palettes, tool lists, pixel-art stamps

@@ -22,10 +22,14 @@
     activeWacky: null,
     activeStamp: null,
     activeStampSet: null,
-    colorIndex: 0
+    colorIndex: 0,
+    shift: false,
+    mirror: 'off',
+    muted: false
   };
 
   const undoStack = [];
+  const redoStack = [];
   const MAX_UNDO = 16;
 
   function clearCanvas(color) {
@@ -38,11 +42,28 @@
     try {
       undoStack.push(ctx.getImageData(0, 0, W, H));
       if (undoStack.length > MAX_UNDO) undoStack.shift();
+      redoStack.length = 0;
+      updateUndoButtons();
     } catch (e) { /* ignore */ }
   }
   function undo() {
-    const s = undoStack.pop();
-    if (s) ctx.putImageData(s, 0, 0);
+    if (!undoStack.length) return;
+    redoStack.push(ctx.getImageData(0, 0, W, H));
+    ctx.putImageData(undoStack.pop(), 0, 0);
+    updateUndoButtons();
+    scheduleAutosave();
+  }
+  function redo() {
+    if (!redoStack.length) return;
+    undoStack.push(ctx.getImageData(0, 0, W, H));
+    ctx.putImageData(redoStack.pop(), 0, 0);
+    updateUndoButtons();
+    scheduleAutosave();
+  }
+  function updateUndoButtons() {
+    const u = $('btn-undo'), r = $('btn-redo');
+    if (u) u.disabled = !undoStack.length;
+    if (r) r.disabled = !redoStack.length;
   }
 
   // ---- Coordinate translation ----
@@ -242,18 +263,20 @@
       down(p) { saveSnapshot(); state.startX = p.x; state.startY = p.y; },
       move(p) {
         restoreSnapshot();
-        strokeLine(ctx, state.startX, state.startY, p.x, p.y, Math.max(1, state.size), state.primary);
+        const e = state.shift ? snapTo45(state.startX, state.startY, p.x, p.y) : p;
+        strokeLine(ctx, state.startX, state.startY, e.x, e.y, Math.max(1, state.size), state.primary);
       }
     },
     rect: {
       down(p) { saveSnapshot(); state.startX = p.x; state.startY = p.y; },
       move(p) {
         restoreSnapshot();
+        const e = state.shift ? snapToSquare(state.startX, state.startY, p.x, p.y) : p;
         ctx.strokeStyle = state.primary;
         ctx.lineWidth = Math.max(1, state.size);
         ctx.strokeRect(
-          Math.min(state.startX, p.x), Math.min(state.startY, p.y),
-          Math.abs(p.x - state.startX), Math.abs(p.y - state.startY)
+          Math.min(state.startX, e.x), Math.min(state.startY, e.y),
+          Math.abs(e.x - state.startX), Math.abs(e.y - state.startY)
         );
       }
     },
@@ -261,10 +284,11 @@
       down(p) { saveSnapshot(); state.startX = p.x; state.startY = p.y; },
       move(p) {
         restoreSnapshot();
+        const e = state.shift ? snapToSquare(state.startX, state.startY, p.x, p.y) : p;
         ctx.fillStyle = state.primary;
         ctx.fillRect(
-          Math.min(state.startX, p.x), Math.min(state.startY, p.y),
-          Math.abs(p.x - state.startX), Math.abs(p.y - state.startY)
+          Math.min(state.startX, e.x), Math.min(state.startY, e.y),
+          Math.abs(e.x - state.startX), Math.abs(e.y - state.startY)
         );
       }
     },
@@ -272,10 +296,11 @@
       down(p) { saveSnapshot(); state.startX = p.x; state.startY = p.y; },
       move(p) {
         restoreSnapshot();
-        const cx = (state.startX + p.x) / 2;
-        const cy = (state.startY + p.y) / 2;
-        const rx = Math.abs(p.x - state.startX) / 2;
-        const ry = Math.abs(p.y - state.startY) / 2;
+        const e = state.shift ? snapToSquare(state.startX, state.startY, p.x, p.y) : p;
+        const cx = (state.startX + e.x) / 2;
+        const cy = (state.startY + e.y) / 2;
+        const rx = Math.abs(e.x - state.startX) / 2;
+        const ry = Math.abs(e.y - state.startY) / 2;
         ctx.strokeStyle = state.primary;
         ctx.lineWidth = Math.max(1, state.size);
         ctx.beginPath();
@@ -287,10 +312,11 @@
       down(p) { saveSnapshot(); state.startX = p.x; state.startY = p.y; },
       move(p) {
         restoreSnapshot();
-        const cx = (state.startX + p.x) / 2;
-        const cy = (state.startY + p.y) / 2;
-        const rx = Math.abs(p.x - state.startX) / 2;
-        const ry = Math.abs(p.y - state.startY) / 2;
+        const e = state.shift ? snapToSquare(state.startX, state.startY, p.x, p.y) : p;
+        const cx = (state.startX + e.x) / 2;
+        const cy = (state.startY + e.y) / 2;
+        const rx = Math.abs(e.x - state.startX) / 2;
+        const ry = Math.abs(e.y - state.startY) / 2;
         ctx.fillStyle = state.primary;
         ctx.beginPath();
         ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
@@ -362,6 +388,38 @@
 
   function saveSnapshot() { state.snapshot = ctx.getImageData(0, 0, W, H); }
   function restoreSnapshot() { if (state.snapshot) ctx.putImageData(state.snapshot, 0, 0); }
+
+  // Constrain helpers (when Shift is held during shape drag)
+  function snapToSquare(sx, sy, x, y) {
+    const dx = x - sx, dy = y - sy;
+    const m = Math.max(Math.abs(dx), Math.abs(dy));
+    return { x: sx + Math.sign(dx || 1) * m, y: sy + Math.sign(dy || 1) * m };
+  }
+  function snapTo45(sx, sy, x, y) {
+    const dx = x - sx, dy = y - sy;
+    const a = Math.atan2(dy, dx);
+    const step = Math.PI / 4;
+    const snap = Math.round(a / step) * step;
+    const len = Math.hypot(dx, dy);
+    return { x: sx + Math.cos(snap) * len, y: sy + Math.sin(snap) * len };
+  }
+
+  // Symmetry: list of mirrored point pairs (current, last) given the active mirror mode
+  function mirrorPoints(p, lp) {
+    const out = [];
+    const cx = W / 2, cy = H / 2;
+    const m = state.mirror;
+    if (m === 'h' || m === 'both') out.push({ p: { x: 2*cx - p.x, y: p.y }, lp: { x: 2*cx - lp.x, y: lp.y } });
+    if (m === 'v' || m === 'both') out.push({ p: { x: p.x, y: 2*cy - p.y }, lp: { x: lp.x, y: 2*cy - lp.y } });
+    if (m === 'both') out.push({ p: { x: 2*cx - p.x, y: 2*cy - p.y }, lp: { x: 2*cx - lp.x, y: 2*cy - lp.y } });
+    return out;
+  }
+  // Tools whose drawing should be mirrored when symmetry is on
+  const MIRROR_TOOLS = new Set(['pencil', 'brush', 'eraser', 'spray', 'musicpencil']);
+  function shouldMirror() {
+    if (state.mirror === 'off') return false;
+    return MIRROR_TOOLS.has(state.tool) || state.tool.startsWith('wacky:') || state.tool.startsWith('stamp:');
+  }
 
   function dropStamp(p) {
     const set = state.activeStampSet || (state.mode === 'kidpix' ? 'kidpix' : 'mariopaint');
@@ -441,18 +499,37 @@
     canvas.setPointerCapture(e.pointerId);
     state.drawing = true;
     state.button = e.button;
+    state.shift = e.shiftKey;
     const p = getPos(e);
     state.startX = state.lastX = p.x;
     state.startY = state.lastY = p.y;
     pushUndo();
     dispatchTool('down', p);
+    if (shouldMirror()) {
+      const realLast = { x: state.lastX, y: state.lastY };
+      for (const m of mirrorPoints(p, p)) {
+        state.lastX = m.lp.x; state.lastY = m.lp.y;
+        dispatchTool('down', m.p);
+      }
+      state.lastX = realLast.x; state.lastY = realLast.y;
+    }
     state.lastX = p.x; state.lastY = p.y;
   });
   canvas.addEventListener('pointermove', (e) => {
+    state.shift = e.shiftKey;
     const p = getPos(e);
     updateStatusPos(p);
+    updateBrushCursor(e);
     if (!state.drawing) return;
     dispatchTool('move', p);
+    if (shouldMirror()) {
+      const realLast = { x: state.lastX, y: state.lastY };
+      for (const m of mirrorPoints(p, realLast)) {
+        state.lastX = m.lp.x; state.lastY = m.lp.y;
+        dispatchTool('move', m.p);
+      }
+      state.lastX = realLast.x; state.lastY = realLast.y;
+    }
     state.lastX = p.x; state.lastY = p.y;
   });
   function endStroke(e) {
@@ -463,6 +540,7 @@
       const p = getPos(e);
       dispatchTool('up', p);
     }
+    scheduleAutosave();
   }
   canvas.addEventListener('pointerup', endStroke);
   canvas.addEventListener('pointercancel', endStroke);
@@ -547,6 +625,7 @@
 
   function setMode(mode) {
     state.mode = mode;
+    try { localStorage.setItem('retropaint:mode', mode); } catch (e) {}
     document.body.className = 'mode-' + mode;
     document.querySelectorAll('.mode-btn').forEach(b => {
       const active = b.dataset.mode === mode;
@@ -603,20 +682,146 @@
   sizeInput.addEventListener('input', () => {
     state.size = +sizeInput.value;
     sizeDisp.textContent = String(state.size);
+    try { localStorage.setItem('retropaint:size', String(state.size)); } catch (e) {}
   });
+
+  // ---- Brush cursor preview ----
+  const brushCursor = $('brush-cursor');
+  function updateBrushCursor(ev) {
+    if (!brushCursor) return;
+    const rect = canvas.getBoundingClientRect();
+    const inside =
+      ev.clientX >= rect.left && ev.clientX <= rect.right &&
+      ev.clientY >= rect.top  && ev.clientY <= rect.bottom;
+    if (!inside) { brushCursor.style.display = 'none'; return; }
+    const scale = rect.width / W;
+    const px = state.tool === 'pencil' ? 1 : Math.max(2, state.size * 2);
+    const sz = px * scale;
+    brushCursor.style.display = 'block';
+    brushCursor.style.width = brushCursor.style.height = sz + 'px';
+    brushCursor.style.left = (ev.clientX - sz / 2) + 'px';
+    brushCursor.style.top  = (ev.clientY - sz / 2) + 'px';
+  }
+  canvas.addEventListener('pointerleave', () => {
+    if (brushCursor) brushCursor.style.display = 'none';
+  });
+
+  // ---- Symmetry mirror (cycle off → H → V → both) ----
+  const MIRROR_LABELS = { off: '⌒ Off', h: '↔ H', v: '↕ V', both: '✚ Both' };
+  function setMirror(m) {
+    state.mirror = m;
+    $('btn-symmetry').textContent = MIRROR_LABELS[m];
+  }
+  $('btn-symmetry').addEventListener('click', () => {
+    const order = ['off', 'h', 'v', 'both'];
+    setMirror(order[(order.indexOf(state.mirror) + 1) % order.length]);
+    Sounds.click();
+  });
+  setMirror('off');
+
+  // ---- Sound mute ----
+  function setMuted(b) {
+    state.muted = !!b;
+    Sounds.setEnabled(!state.muted);
+    $('btn-mute').textContent = state.muted ? '🔇' : '🔊';
+    try { localStorage.setItem('retropaint:muted', state.muted ? '1' : '0'); } catch (e) {}
+  }
+  $('btn-mute').addEventListener('click', () => setMuted(!state.muted));
+
+  // ---- Redo button ----
+  $('btn-redo').addEventListener('click', () => { Sounds.click(); redo(); });
+
+  // ---- Open image ----
+  const fileInput = $('file-input');
+  $('btn-open').addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', () => {
+    const f = fileInput.files && fileInput.files[0];
+    if (!f) return;
+    const img = new Image();
+    img.onload = () => {
+      pushUndo();
+      clearCanvas('#ffffff');
+      const r = Math.min(W / img.width, H / img.height);
+      const dw = img.width * r, dh = img.height * r;
+      ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+      URL.revokeObjectURL(img.src);
+      scheduleAutosave();
+    };
+    img.onerror = () => alert('Could not load that image.');
+    img.src = URL.createObjectURL(f);
+    fileInput.value = '';
+  });
+
+  // ---- Autosave + restore ----
+  let saveTimer = null;
+  function scheduleAutosave() {
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      try { localStorage.setItem('retropaint:canvas', canvas.toDataURL('image/png')); }
+      catch (e) { /* quota or security */ }
+    }, 1500);
+  }
+  function tryRestore() {
+    let data;
+    try { data = localStorage.getItem('retropaint:canvas'); } catch (e) { return; }
+    if (!data) return;
+    const img = new Image();
+    img.onload = () => {
+      if (confirm('Restore your last drawing?')) {
+        ctx.drawImage(img, 0, 0);
+      } else {
+        try { localStorage.removeItem('retropaint:canvas'); } catch (e) {}
+      }
+    };
+    img.src = data;
+  }
 
   // ---- Keyboard shortcuts ----
   window.addEventListener('keydown', (e) => {
     if (e.target && /input|textarea/i.test(e.target.tagName)) return;
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
-      e.preventDefault(); undo();
-    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
-      e.preventDefault(); $('btn-save').click();
-    } else if (e.key === '1') setMode('mspaint');
-    else if (e.key === '2') setMode('mariopaint');
-    else if (e.key === '3') setMode('kidpix');
+    state.shift = e.shiftKey;
+    const mod = e.ctrlKey || e.metaKey;
+    const k = e.key.toLowerCase();
+    if (mod && k === 'z' && e.shiftKey) { e.preventDefault(); redo(); return; }
+    if (mod && k === 'z') { e.preventDefault(); undo(); return; }
+    if (mod && k === 'y') { e.preventDefault(); redo(); return; }
+    if (mod && k === 's') { e.preventDefault(); $('btn-save').click(); return; }
+    if (mod && k === 'o') { e.preventDefault(); $('btn-open').click(); return; }
+    if (mod) return;
+    if (e.key === '1') return setMode('mspaint');
+    if (e.key === '2') return setMode('mariopaint');
+    if (e.key === '3') return setMode('kidpix');
+    if (k === 'm') return setMuted(!state.muted);
+    if (k === 'y') return $('btn-symmetry').click();
+    // Single-letter tool hotkey for current mode
+    const tool = (PaintModes.tools[state.mode] || []).find(t => t.shortcut === k);
+    if (tool) { setTool(tool.id, tool); Sounds.click(); }
   });
+  window.addEventListener('keyup', (e) => { state.shift = e.shiftKey; });
 
   // ---- Init ----
-  setMode('mspaint');
+  // Restore persisted preferences first
+  try {
+    const savedSize = +localStorage.getItem('retropaint:size');
+    if (savedSize >= 1 && savedSize <= 32) {
+      state.size = savedSize;
+      sizeInput.value = String(savedSize);
+      sizeDisp.textContent = String(savedSize);
+    }
+    setMuted(localStorage.getItem('retropaint:muted') === '1');
+  } catch (e) {}
+
+  let savedMode = 'mspaint';
+  try { savedMode = localStorage.getItem('retropaint:mode') || 'mspaint'; } catch (e) {}
+  if (!['mspaint','mariopaint','kidpix'].includes(savedMode)) savedMode = 'mspaint';
+  setMode(savedMode);
+  updateUndoButtons();
+  tryRestore();
+
+  // Register service worker for offline / installable PWA
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+  }
 })();
