@@ -877,12 +877,17 @@
     buildTools();
     buildPalette();
     $('canvas-title').textContent = PaintModes.titles[mode];
-    $('status-mode').textContent = (
-      mode === 'mspaint' ? 'MS Paint 95'
-      : mode === 'mariopaint' ? 'Mario Paint'
-      : 'Kid Pix'
-    );
+    const MODE_LABELS = {
+      mspaint: 'MS Paint 95',
+      mariopaint: 'Mario Paint',
+      kidpix: 'Kid Pix',
+      macpaint: 'MacPaint',
+      tuxpaint: 'Tux Paint',
+      psp: 'Paint Shop Pro'
+    };
+    $('status-mode').textContent = MODE_LABELS[mode] || mode;
   }
+  const VALID_MODES = ['mspaint','mariopaint','kidpix','macpaint','tuxpaint','psp'];
 
   function updateStatusPos(p) {
     $('status-pos').textContent = `${p.x}, ${p.y}`;
@@ -1036,6 +1041,9 @@
     if (e.key === '1') return setMode('mspaint');
     if (e.key === '2') return setMode('mariopaint');
     if (e.key === '3') return setMode('kidpix');
+    if (e.key === '4') return setMode('macpaint');
+    if (e.key === '5') return setMode('tuxpaint');
+    if (e.key === '6') return setMode('psp');
     if (k === 'm') return setMuted(!state.muted);
     if (k === 'y') return $('btn-symmetry').click();
     if (k === 'g') return $('btn-grid').click();
@@ -1494,7 +1502,7 @@
 
   let savedMode = 'mspaint';
   try { savedMode = localStorage.getItem('retropaint:mode') || 'mspaint'; } catch (e) {}
-  if (!['mspaint','mariopaint','kidpix'].includes(savedMode)) savedMode = 'mspaint';
+  if (!VALID_MODES.includes(savedMode)) savedMode = 'mspaint';
   setMode(savedMode);
   updateUndoButtons();
   tryRestore();

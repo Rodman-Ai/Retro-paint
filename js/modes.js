@@ -464,6 +464,32 @@
       '#33ff33', '#00cc66', '#00ffcc',
       '#0099ff', '#3333ff', '#9933ff',
       '#cc0099', '#663300', '#999999', '#cccccc'
+    ],
+    // MacPaint: 1-bit B&W. Two "colors" + greys for the dither preview.
+    macpaint: [
+      '#000000', '#ffffff',
+      '#222222', '#444444', '#666666',
+      '#888888', '#aaaaaa', '#cccccc'
+    ],
+    // Tux Paint: bright primaries for kids.
+    tuxpaint: [
+      '#000000', '#ffffff',
+      '#ed1c24', '#ff7f27', '#fff200',
+      '#22b14c', '#00a2e8', '#3f48cc',
+      '#a349a4', '#ff66cc', '#b97a57',
+      '#ffaec9', '#fff5b3', '#c8bfe7',
+      '#7f7f7f', '#c3c3c3'
+    ],
+    // Paint Shop Pro: pro-grayscale + RGB strip.
+    psp: [
+      '#000000', '#202020', '#404040', '#606060',
+      '#808080', '#a0a0a0', '#c0c0c0', '#ffffff',
+      '#ff0000', '#00ff00', '#0000ff',
+      '#ffff00', '#ff00ff', '#00ffff',
+      '#800000', '#008000', '#000080',
+      '#808000', '#800080', '#008080',
+      '#ff8040', '#40ff80', '#4080ff',
+      '#ffc080', '#80ffc0', '#c080ff'
     ]
   };
 
@@ -545,6 +571,53 @@
       { id: 'stamp:robot',     label: 'Robot',     icon: '🤖', kind: 'stamp', stamp: 'robot',     stampSet: 'kidpix' },
       { id: 'stamp:smiley',    label: 'Smiley',    icon: '🙂', kind: 'stamp', stamp: 'smiley',    stampSet: 'kidpix' },
       { id: 'stamp:star2',     label: 'Pop★',      icon: '🌟', kind: 'stamp', stamp: 'star2',     stampSet: 'kidpix' }
+    ],
+    // MacPaint — clones MS Paint tools for Phase 1; Phase 3 adds patterns/FatBits/Goodies.
+    macpaint: [
+      { id: 'pencil', label: 'Pencil', icon: '✏️', shortcut: 'p' },
+      { id: 'brush', label: 'Brush', icon: '🖌️', shortcut: 'b' },
+      { id: 'eraser', label: 'Eraser', icon: '🧽', shortcut: 'e' },
+      { id: 'fill', label: 'Bucket', icon: '🪣', shortcut: 'f' },
+      { id: 'eyedrop', label: 'Pick', icon: '💧', shortcut: 'k' },
+      { id: 'spray', label: 'Spray', icon: '💨', shortcut: 's' },
+      { id: 'line', label: 'Line', icon: '╱', shortcut: 'l' },
+      { id: 'rect', label: 'Rect', icon: '▭', shortcut: 'r' },
+      { id: 'rectFill', label: 'Rect•', icon: '▬' },
+      { id: 'ellipse', label: 'Oval', icon: '◯', shortcut: 'o' },
+      { id: 'ellipseFill', label: 'Oval•', icon: '⬤' },
+      { id: 'text', label: 'Text', icon: 'A', shortcut: 't' },
+      { id: 'select', label: 'Marquee', icon: '⬚', shortcut: 'a' }
+    ],
+    // Tux Paint — Phase 1 minimal set; Phase 4 adds magic effects, categorized stamps, mascot.
+    tuxpaint: [
+      { id: 'pencil', label: 'Paint', icon: '✏️', shortcut: 'p' },
+      { id: 'brush', label: 'Brush', icon: '🖌️', shortcut: 'b' },
+      { id: 'eraser', label: 'Eraser', icon: '🧽', shortcut: 'e' },
+      { id: 'fill', label: 'Fill', icon: '🪣', shortcut: 'f' },
+      { id: 'spray', label: 'Spray', icon: '💨', shortcut: 's' },
+      { id: 'line', label: 'Lines', icon: '╱', shortcut: 'l' },
+      { id: 'rect', label: 'Shapes', icon: '▭', shortcut: 'r' },
+      { id: 'wacky:rainbow', label: 'Magic', icon: '🌈', kind: 'wacky', wacky: 'rainbow' },
+      { id: 'text', label: 'Text', icon: 'T', shortcut: 't' },
+      { id: 'stamp:smile', label: 'Stamp', icon: '😊', kind: 'stamp', stamp: 'smile' }
+    ],
+    // Paint Shop Pro — Phase 1 pro-toolbox; Phase 5 adds layers UI, dialogs, clone, tabs.
+    psp: [
+      { id: 'pencil', label: 'Pencil', icon: '✏️', shortcut: 'p' },
+      { id: 'brush', label: 'Brush', icon: '🖌️', shortcut: 'b' },
+      { id: 'eraser', label: 'Eraser', icon: '🧽', shortcut: 'e' },
+      { id: 'fill', label: 'Bucket', icon: '🪣', shortcut: 'f' },
+      { id: 'eyedrop', label: 'Dropper', icon: '💧', shortcut: 'k' },
+      { id: 'spray', label: 'Airbrush', icon: '💨', shortcut: 's' },
+      { id: 'smudge', label: 'Smudge', icon: '👆' },
+      { id: 'line', label: 'Line', icon: '╱', shortcut: 'l' },
+      { id: 'rect', label: 'Rect', icon: '▭', shortcut: 'r' },
+      { id: 'rectFill', label: 'Rect•', icon: '▬' },
+      { id: 'ellipse', label: 'Oval', icon: '◯', shortcut: 'o' },
+      { id: 'ellipseFill', label: 'Oval•', icon: '⬤' },
+      { id: 'gradient', label: 'Gradient', icon: '🌈', shortcut: 'g' },
+      { id: 'text', label: 'Text', icon: 'T', shortcut: 't' },
+      { id: 'select', label: 'Select', icon: '⬚', shortcut: 'a' }
     ]
   };
 
@@ -556,7 +629,10 @@
     titles: {
       mspaint: 'untitled — Paint',
       mariopaint: '* Mario Paint *',
-      kidpix: 'KID PIX !'
+      kidpix: 'KID PIX !',
+      macpaint: 'untitled (MacPaint)',
+      tuxpaint: 'Tux Paint — New Picture',
+      psp: 'Image1 @ 100% (Layer 1)'
     }
   };
 })(window);
