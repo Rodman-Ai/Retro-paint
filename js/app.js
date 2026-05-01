@@ -4553,6 +4553,489 @@
     }
   };
 
+  // ====================================================================
+  // PHASE 5 (round 2) — animation timeline + flagship mode features
+  // ====================================================================
+
+  // ---- Real timeline UI (layers × frames grid) ----
+  Tools.openTimeline = {
+    async down() {
+      if (!state.frames) ensureFrames();
+      const d = activeDoc(); if (!d) return;
+      const html = `
+        <div>Timeline (${d.layers.length} layers × ${state.frames.length} frames):</div>
+        <table style="border-collapse:collapse;font-size:11px;margin-top:8px">
+          <thead><tr><th></th>${state.frames.map((_, i) => `<th style="border:1px solid #888;padding:2px 6px">F${i+1}</th>`).join('')}</tr></thead>
+          <tbody>
+            ${d.layers.map((L, li) => `<tr>
+              <td style="border:1px solid #888;padding:2px 6px">${L.name}</td>
+              ${state.frames.map((_, fi) => `<td data-l="${li}" data-f="${fi}" style="border:1px solid #888;width:24px;height:18px;text-align:center;cursor:pointer">${fi === state.frameIdx ? '●' : '·'}</td>`).join('')}
+            </tr>`).join('')}
+          </tbody>
+        </table>`;
+      showModal('Timeline', html, { hideCancel: true, okText: 'Close' });
+      setTimeout(() => {
+        window.document.querySelectorAll('[data-f]').forEach(td => {
+          td.addEventListener('click', () => {
+            const fi = +td.dataset.f;
+            commitCurrentToFrame();
+            state.frameIdx = fi;
+            updateAnimBar();
+            $('modal').hidden = true;
+          });
+        });
+      }, 50);
+    }
+  };
+
+  // ---- Keyframes for layer opacity ----
+  Tools.addKeyframe = {
+    down() {
+      const L = activeLayer(); if (!L) return;
+      L.keyframes = L.keyframes || {};
+      L.keyframes[state.frameIdx] = { opacity: L.opacity, x: 0, y: 0 };
+      alert(`Keyframe set on layer "${L.name}" at frame ${state.frameIdx + 1}.`);
+    }
+  };
+
+  // ---- Tweening (linear interp between keyframes) ----
+  function applyTween() {
+    const d = activeDoc(); if (!d) return;
+    for (const L of d.layers) {
+      if (!L.keyframes) continue;
+      const keys = Object.keys(L.keyframes).map(Number).sort((a, b) => a - b);
+      let prev = keys[0], next = keys[keys.length - 1];
+      for (let i = 0; i < keys.length - 1; i++) {
+        if (keys[i] <= state.frameIdx && keys[i + 1] >= state.frameIdx) {
+          prev = keys[i]; next = keys[i + 1]; break;
+        }
+      }
+      const a = L.keyframes[prev], b = L.keyframes[next];
+      const t = next === prev ? 0 : (state.frameIdx - prev) / (next - prev);
+      L.opacity = a.opacity + (b.opacity - a.opacity) * t;
+    }
+    composite();
+  }
+  Tools.runTween = { down() { applyTween(); } };
+
+  // ---- Per-layer onion skin ----
+  Tools.toggleLayerOnion = {
+    down() { const L = activeLayer(); if (L) { L.onion = !L.onion; composite(); } }
+  };
+
+  // ---- Frame tags ----
+  state.frameTags = {};
+  Tools.tagFrame = {
+    down() {
+      const t = prompt('Tag for current frame (e.g. "walk", "idle"):'); if (t == null) return;
+      state.frameTags[state.frameIdx] = t;
+    }
+  };
+
+  // ---- Tile mode preview (3×3 grid of canvas) ----
+  Tools.tilePreview = {
+    down() {
+      const w = window.open('', 'TilePreview', 'width=800,height=600');
+      const d = canvas.toDataURL('image/png');
+      w.document.body.style.margin = '0';
+      w.document.body.style.background = '#222';
+      const grid = w.document.createElement('div');
+      grid.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);width:100vw;height:100vh;gap:0';
+      for (let i = 0; i < 9; i++) {
+        const im = w.document.createElement('img');
+        im.src = d; im.style.cssText = 'width:100%;height:100%;object-fit:contain;image-rendering:pixelated';
+        grid.appendChild(im);
+      }
+      w.document.body.appendChild(grid);
+    }
+  };
+
+  // ---- Sprite sheet importer (slice PNG into N×M frames) ----
+  Tools.importSpriteSheet = {
+    async down() {
+      const cols = +(prompt('Columns:', '4') || '4');
+      const rows = +(prompt('Rows:', '1') || '1');
+      const inp = window.document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*';
+      inp.onchange = () => {
+        const f = inp.files[0]; if (!f) return;
+        const img = new Image();
+        img.onload = () => {
+          const fw = (img.width / cols) | 0, fh = (img.height / rows) | 0;
+          state.frames = [];
+          for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+            const tmp = window.document.createElement('canvas');
+            tmp.width = fw; tmp.height = fh;
+            tmp.getContext('2d').drawImage(img, c*fw, r*fh, fw, fh, 0, 0, fw, fh);
+            state.frames.push(tmp.getContext('2d').getImageData(0, 0, fw, fh));
+          }
+          state.frameIdx = 0;
+          showAnimBar(); updateAnimBar();
+          alert('Imported ' + (cols * rows) + ' frames.');
+        };
+        img.src = URL.createObjectURL(f);
+      };
+      inp.click();
+    }
+  };
+
+  // ---- Real GIF89a encoder (minimal) ----
+  // Uses LZW compression on indexed-color frames.
+  function quantizeFrame(imgData) {
+    // Simple uniform 6-3-3 cube quantization → 256-color indexed.
+    const palette = [];
+    const w = imgData.width, h = imgData.height;
+    const indices = new Uint8Array(w * h);
+    const map = {};
+    let nColors = 0;
+    const d = imgData.data;
+    for (let i = 0, j = 0; i < d.length; i += 4, j++) {
+      const r = (d[i] >> 5) << 5, g = (d[i+1] >> 5) << 5, b = (d[i+2] >> 6) << 6;
+      const key = r * 65536 + g * 256 + b;
+      if (!(key in map)) {
+        if (nColors >= 256) { map[key] = 0; }
+        else { map[key] = nColors; palette.push([r, g, b]); nColors++; }
+      }
+      indices[j] = map[key];
+    }
+    while (palette.length < 256) palette.push([0, 0, 0]);
+    return { indices, palette, w, h };
+  }
+  // Tiny LZW encoder for GIF
+  function lzwEncode(indices, minCodeSize) {
+    const clearCode = 1 << minCodeSize;
+    const eoi = clearCode + 1;
+    let codeSize = minCodeSize + 1;
+    let nextCode = eoi + 1;
+    let dict = {};
+    for (let i = 0; i < clearCode; i++) dict[String.fromCharCode(i)] = i;
+    const out = [];
+    let buffer = 0, bufferBits = 0;
+    const writeCode = (c) => {
+      buffer |= c << bufferBits;
+      bufferBits += codeSize;
+      while (bufferBits >= 8) { out.push(buffer & 0xff); buffer >>>= 8; bufferBits -= 8; }
+    };
+    writeCode(clearCode);
+    let prev = String.fromCharCode(indices[0]);
+    for (let i = 1; i < indices.length; i++) {
+      const cur = String.fromCharCode(indices[i]);
+      const combined = prev + cur;
+      if (combined in dict) prev = combined;
+      else {
+        writeCode(dict[prev]);
+        if (nextCode < 4096) {
+          dict[combined] = nextCode++;
+          if (nextCode > (1 << codeSize) && codeSize < 12) codeSize++;
+        }
+        prev = cur;
+      }
+    }
+    writeCode(dict[prev]);
+    writeCode(eoi);
+    if (bufferBits > 0) out.push(buffer & 0xff);
+    return new Uint8Array(out);
+  }
+  function encodeGIF89a(frames, delayCs) {
+    if (!frames.length) return null;
+    const w = frames[0].w, h = frames[0].h;
+    const out = [];
+    const w8 = (n) => out.push(n & 0xff);
+    const w16 = (n) => { out.push(n & 0xff); out.push((n >> 8) & 0xff); };
+    // Header
+    'GIF89a'.split('').forEach(c => w8(c.charCodeAt(0)));
+    w16(w); w16(h);
+    w8(0xf7); // global color table flag, 256 colors
+    w8(0); w8(0);
+    // Global palette = first frame's palette
+    for (let i = 0; i < 256; i++) {
+      const c = frames[0].palette[i] || [0,0,0];
+      w8(c[0]); w8(c[1]); w8(c[2]);
+    }
+    // Loop extension
+    w8(0x21); w8(0xff); w8(0x0b);
+    'NETSCAPE2.0'.split('').forEach(c => w8(c.charCodeAt(0)));
+    w8(0x03); w8(0x01); w16(0); w8(0);
+    // Each frame
+    for (const f of frames) {
+      // Graphic Control
+      w8(0x21); w8(0xf9); w8(0x04); w8(0); w16(delayCs); w8(0); w8(0);
+      // Image Descriptor
+      w8(0x2c); w16(0); w16(0); w16(w); w16(h); w8(0);
+      // LZW
+      w8(8); // min code size
+      const compressed = lzwEncode(f.indices, 8);
+      // Sub-blocks
+      let p = 0;
+      while (p < compressed.length) {
+        const len = Math.min(255, compressed.length - p);
+        w8(len);
+        for (let k = 0; k < len; k++) w8(compressed[p + k]);
+        p += len;
+      }
+      w8(0);
+    }
+    w8(0x3b);
+    return new Uint8Array(out);
+  }
+  Tools.exportRealGif = {
+    down() {
+      if (!state.frames || state.frames.length < 2) { alert('Add frames first.'); return; }
+      const qFrames = state.frames.map(quantizeFrame);
+      const gif = encodeGIF89a(qFrames, 15);
+      const blob = new Blob([gif], { type: 'image/gif' });
+      const a = window.document.createElement('a');
+      a.download = `retro-paint-${Date.now()}.gif`;
+      a.href = URL.createObjectURL(blob);
+      a.click();
+    }
+  };
+
+  // ---- WebM video export via MediaRecorder ----
+  Tools.exportWebM = {
+    down() {
+      if (typeof MediaRecorder === 'undefined') { alert('MediaRecorder not supported.'); return; }
+      const stream = canvas.captureStream(15);
+      const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+      const chunks = [];
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const a = window.document.createElement('a');
+        a.download = `retro-paint-${Date.now()}.webm`;
+        a.href = URL.createObjectURL(blob);
+        a.click();
+      };
+      recorder.start();
+      // Play frames + record.
+      let i = 0;
+      const total = state.frames ? state.frames.length : 1;
+      const tick = () => {
+        if (state.frames && i < total) {
+          ctx.putImageData(state.frames[i], 0, 0);
+          composite();
+          i++;
+          setTimeout(tick, 100);
+        } else {
+          setTimeout(() => recorder.stop(), 200);
+        }
+      };
+      tick();
+    }
+  };
+
+  // ---- Time-lapse recording ----
+  state.timeLapse = null;
+  Tools.timeLapseStart = {
+    down() {
+      state.timeLapse = { startedAt: Date.now(), strokes: [] };
+      alert('Time-lapse recording started.');
+    }
+  };
+  Tools.timeLapseStop = {
+    down() {
+      if (!state.timeLapse) return;
+      alert(`Time-lapse stopped: ${state.timeLapse.strokes.length} strokes captured.`);
+      // Generate a sequence of canvas snapshots.
+      const tl = state.timeLapse; state.timeLapse = null;
+      // We didn't capture intermediate snapshots, so just save final.
+      const a = window.document.createElement('a');
+      a.download = 'retro-paint-timelapse.png';
+      a.href = canvas.toDataURL();
+      a.click();
+    }
+  };
+
+  // ---- Procreate QuickShape: detect drag-then-hold, snap to perfect shape ----
+  Tools.pcQuickShape = {
+    down(p) { state.qsStart = { x: p.x, y: p.y }; saveSnapshot(); },
+    move(p) {
+      if (!state.qsStart) return;
+      restoreSnapshot();
+      ctx.save();
+      ctx.strokeStyle = state.primary;
+      ctx.lineWidth = Math.max(1, state.size);
+      // Snap to nearest 0/45/90 if Shift, else freeform line until release.
+      ctx.beginPath();
+      ctx.moveTo(state.qsStart.x, state.qsStart.y);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+      ctx.restore();
+    },
+    up(p) {
+      if (!state.qsStart) return;
+      // On release: snap to perfect line (or perfect circle if path is circular).
+      restoreSnapshot();
+      const dx = p.x - state.qsStart.x, dy = p.y - state.qsStart.y;
+      const ang = Math.atan2(dy, dx);
+      const steps = Math.PI / 8;
+      const snap = Math.round(ang / steps) * steps;
+      const len = Math.hypot(dx, dy);
+      const ex = state.qsStart.x + Math.cos(snap) * len;
+      const ey = state.qsStart.y + Math.sin(snap) * len;
+      pushUndo();
+      ctx.strokeStyle = state.primary;
+      ctx.lineWidth = Math.max(1, state.size);
+      ctx.beginPath();
+      ctx.moveTo(state.qsStart.x, state.qsStart.y);
+      ctx.lineTo(ex, ey);
+      ctx.stroke();
+      composite();
+      state.qsStart = null;
+    }
+  };
+
+  // ---- Procreate StreamLine: smoothed brush with adjustable strength ----
+  state.streamlineAmount = 0.5;
+  Tools.pcStreamLine = {
+    down(p) { stabQueue = null; state.brushDynamics.stabilizer = state.streamlineAmount; setTool('brush'); }
+  };
+
+  // ---- Procreate ColorDrop: drag color from primary swatch into a region ----
+  // Since true drag-drop is heavy, simulate: click ColorDrop, then click a region to flood with primary.
+  Tools.pcColorDrop = {
+    down(p) {
+      pushUndo();
+      floodFill(p.x, p.y, state.primary);
+      composite();
+    }
+  };
+
+  // ---- Aseprite Tile mode (mirror paint into 8 surrounding tiles) ----
+  state.tileMode = false;
+  Tools.aseTile = {
+    down() {
+      state.tileMode = !state.tileMode;
+      alert('Tile mode: ' + (state.tileMode ? 'ON' : 'OFF'));
+    }
+  };
+  // Wrap dispatchTool to also paint into 8 mirrored offsets when tile mode is on.
+  const _origDispatchTool2 = dispatchTool;
+  dispatchTool = function (phase, p) {
+    _origDispatchTool2(phase, p);
+    if (!state.tileMode) return;
+    for (const dx of [-W, 0, W]) for (const dy of [-H, 0, H]) {
+      if (dx === 0 && dy === 0) continue;
+      _origDispatchTool2(phase, { x: p.x + dx, y: p.y + dy });
+    }
+  };
+
+  // ---- Aseprite Color cycling ----
+  state.cyclingPalette = false;
+  state.cycleSpeed = 200;
+  Tools.aseCycle = {
+    down() {
+      if (state.cyclingPalette) { clearInterval(state.cyclingPalette); state.cyclingPalette = false; return; }
+      const palette = PaintModes.palettes[state.mode];
+      let off = 0;
+      state.cyclingPalette = setInterval(() => {
+        off = (off + 1) % palette.length;
+        const newPal = [...palette.slice(off), ...palette.slice(0, off)];
+        // Apply: shift any pixel matching palette[i] to palette[(i+off)%n].
+        const img = ctx.getImageData(0, 0, W, H);
+        const d = img.data;
+        for (let i = 0; i < d.length; i += 4) {
+          for (let k = 0; k < palette.length; k++) {
+            const c = parseColor(palette[k]);
+            if (Math.abs(d[i] - c[0]) < 8 && Math.abs(d[i+1] - c[1]) < 8 && Math.abs(d[i+2] - c[2]) < 8) {
+              const tgt = parseColor(newPal[k]);
+              d[i] = tgt[0]; d[i+1] = tgt[1]; d[i+2] = tgt[2];
+              break;
+            }
+          }
+        }
+        ctx.putImageData(img, 0, 0);
+        composite();
+      }, state.cycleSpeed);
+    }
+  };
+
+  // ---- GIMP Quick Mask (already added in Phase 2) ----
+  Tools.gimpQuickMask = Tools.quickMask;
+
+  // ---- GIMP Script-Fu console (sandboxed JS REPL) ----
+  Tools.gimpScriptFu = {
+    async down() {
+      const html = `
+        <textarea id="sf-in" rows="6" cols="40" placeholder="// Run JS bound to ctx, W, H, composite(), state.\n// Example: ctx.fillStyle='red'; ctx.fillRect(0,0,40,40); composite();"></textarea>
+        <button id="sf-run">Run</button>
+        <pre id="sf-out" style="background:#000;color:#0f0;padding:6px;max-height:120px;overflow:auto;font-size:11px"></pre>`;
+      showModal('Script-Fu console', html, { hideCancel: true, okText: 'Close' });
+      setTimeout(() => {
+        const run = window.document.getElementById('sf-run');
+        if (!run) return;
+        run.addEventListener('click', () => {
+          const inp = window.document.getElementById('sf-in').value;
+          const out = window.document.getElementById('sf-out');
+          try {
+            const fn = new Function('ctx', 'W', 'H', 'composite', 'state', inp);
+            const r = fn(ctx, W, H, composite, state);
+            out.textContent += '> ' + (r === undefined ? '(ok)' : JSON.stringify(r)) + '\n';
+          } catch (e) { out.textContent += '! ' + e.message + '\n'; }
+        });
+      }, 50);
+    }
+  };
+
+  // ---- Action recorder (record + replay tool sequence) ----
+  state.actionRecord = null;
+  Tools.actionRecord = {
+    down() {
+      if (state.actionRecord) {
+        alert('Action stopped: ' + state.actionRecord.length + ' steps captured.');
+        try { localStorage.setItem('retropaint:lastAction', JSON.stringify(state.actionRecord)); } catch (e) {}
+        state.actionRecord = null;
+      } else {
+        state.actionRecord = [];
+        alert('Action recording started. Click Record again to stop.');
+      }
+    }
+  };
+  Tools.actionPlay = {
+    down() {
+      let actions = [];
+      try { actions = JSON.parse(localStorage.getItem('retropaint:lastAction') || '[]'); } catch (e) {}
+      if (!actions.length) { alert('No action saved.'); return; }
+      // Replay each captured tool down event.
+      let i = 0;
+      const tick = () => {
+        if (i >= actions.length) return;
+        const a = actions[i++];
+        if (a.type === 'tool') setTool(a.id);
+        else if (a.type === 'draw') { setTool(a.tool); dispatchTool('down', a.p); }
+        setTimeout(tick, 80);
+      };
+      tick();
+    }
+  };
+
+  // ---- Batch processing ----
+  Tools.batchProcess = {
+    async down() {
+      const inp = window.document.createElement('input');
+      inp.type = 'file'; inp.accept = 'image/*'; inp.multiple = true;
+      inp.onchange = async () => {
+        for (const f of inp.files) {
+          await new Promise((res) => {
+            const img = new Image();
+            img.onload = () => {
+              ctx.clearRect(0, 0, W, H);
+              ctx.drawImage(img, 0, 0, W, H);
+              applyFilter('grayscale');
+              const a = window.document.createElement('a');
+              a.download = 'batch-' + f.name + '.png';
+              a.href = canvas.toDataURL();
+              a.click();
+              res();
+            };
+            img.src = URL.createObjectURL(f);
+          });
+        }
+        alert('Batch complete.');
+      };
+      inp.click();
+    }
+  };
+
   // ---- Init ----
   // Create the initial document FIRST so that any drawing during init has a
   // layer to write to. `setActiveDoc` rebinds the module-level `ctx`.

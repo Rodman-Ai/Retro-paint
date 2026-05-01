@@ -836,7 +836,22 @@
       { id: 'varFontWeight', label: 'VarFont', icon: 'A𝐀' },
       { id: 'loadWebFont', label: 'WebFont', icon: '🌐' },
       { id: 'textWarp', label: 'Warp', icon: '🌊' },
-      { id: 'glyphsPanel', label: 'Glyphs', icon: '☆' }
+      { id: 'glyphsPanel', label: 'Glyphs', icon: '☆' },
+      // Phase 5: animation + flagship + extras
+      { id: 'openTimeline', label: 'Timeline', icon: '⏱️' },
+      { id: 'addKeyframe', label: 'Keyframe', icon: '◆' },
+      { id: 'runTween', label: 'Tween', icon: '⇄' },
+      { id: 'toggleLayerOnion', label: 'L-Onion', icon: '◑' },
+      { id: 'tagFrame', label: 'TagFrm', icon: '🏷️' },
+      { id: 'tilePreview', label: 'TilePvw', icon: '⊞' },
+      { id: 'importSpriteSheet', label: 'ImpSprite', icon: '🎞' },
+      { id: 'exportRealGif', label: 'GIF89a', icon: '🎞️' },
+      { id: 'exportWebM', label: 'WebM', icon: '🎬' },
+      { id: 'timeLapseStart', label: 'TLStart', icon: '⏺' },
+      { id: 'timeLapseStop', label: 'TLStop', icon: '⏹' },
+      { id: 'actionRecord', label: 'Record', icon: '⏺' },
+      { id: 'actionPlay', label: 'Play', icon: '▶' },
+      { id: 'batchProcess', label: 'Batch', icon: '🗂️' }
     ]
   };
 
