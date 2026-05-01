@@ -69,6 +69,7 @@
       </aside>
 
       <section class="canvas-area">
+        <div id="psp-tabs" class="psp-tabs" hidden></div>
         <div class="canvas-frame">
           <div class="canvas-titlebar" id="canvas-titlebar">
             <span id="canvas-title">untitled — Paint</span>
@@ -107,6 +108,16 @@
         <div id="palette" class="palette-grid"></div>
         <div class="recent-label">Recent</div>
         <div id="recent-colors" class="palette-grid"></div>
+        <div id="psp-layers-panel" class="psp-layers-panel" hidden>
+          <div class="psp-layers-title">Layers</div>
+          <div id="psp-layers-list"></div>
+          <div class="psp-layers-actions">
+            <button id="psp-layer-add" title="New layer">＋</button>
+            <button id="psp-layer-dup" title="Duplicate">⎘</button>
+            <button id="psp-layer-merge" title="Merge down">⤓</button>
+            <button id="psp-layer-del" title="Delete">🗑</button>
+          </div>
+        </div>
       </aside>
     </main>
   </div>

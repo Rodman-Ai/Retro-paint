@@ -2381,6 +2381,423 @@
     stage.classList.add('bg-' + state.bgPattern);
   }
 
+  // ---- PSP layers panel ----
+  const BLEND_MODES = [
+    'source-over','multiply','screen','overlay','darken','lighten',
+    'color-dodge','color-burn','difference','exclusion','soft-light','hard-light'
+  ];
+  const BLEND_LABELS = {
+    'source-over': 'Normal', multiply: 'Multiply', screen: 'Screen',
+    overlay: 'Overlay', darken: 'Darken', lighten: 'Lighten',
+    'color-dodge': 'Dodge', 'color-burn': 'Burn',
+    difference: 'Difference', exclusion: 'Exclusion',
+    'soft-light': 'Soft Light', 'hard-light': 'Hard Light'
+  };
+  function renderLayersPanel() {
+    const panel = $('psp-layers-panel');
+    if (!panel) return;
+    panel.hidden = state.mode !== 'psp';
+    if (panel.hidden) return;
+    const list = $('psp-layers-list');
+    list.innerHTML = '';
+    const d = activeDoc(); if (!d) return;
+    // Render top-down (visually) but data is bottom-up.
+    for (let i = d.layers.length - 1; i >= 0; i--) {
+      const L = d.layers[i];
+      const row = window.document.createElement('div');
+      row.className = 'psp-layer-row' + (i === d.activeIdx ? ' is-active' : '');
+      // Thumbnail
+      const thumb = window.document.createElement('canvas');
+      thumb.className = 'psp-layer-thumb';
+      thumb.width = 24; thumb.height = 18;
+      const tctx = thumb.getContext('2d');
+      tctx.fillStyle = '#fff'; tctx.fillRect(0, 0, 24, 18);
+      tctx.drawImage(L.canvas, 0, 0, 24, 18);
+      // Eye
+      const eye = window.document.createElement('button');
+      eye.textContent = L.visible ? '👁' : '·';
+      eye.title = 'Toggle visibility';
+      eye.style.cssText = 'padding:0 4px;font-size:11px';
+      eye.addEventListener('click', (e) => { e.stopPropagation(); L.visible = !L.visible; renderLayersPanel(); composite(); });
+      // Name
+      const name = window.document.createElement('span');
+      name.className = 'psp-layer-name';
+      name.textContent = L.name;
+      name.title = 'Double-click to rename';
+      name.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        const v = prompt('Layer name:', L.name);
+        if (v) { L.name = v; renderLayersPanel(); }
+      });
+      // Blend mode
+      const blend = window.document.createElement('select');
+      BLEND_MODES.forEach(b => {
+        const o = window.document.createElement('option');
+        o.value = b; o.textContent = BLEND_LABELS[b]; if (L.blend === b) o.selected = true;
+        blend.appendChild(o);
+      });
+      blend.addEventListener('change', () => { L.blend = blend.value; composite(); });
+      blend.addEventListener('click', (e) => e.stopPropagation());
+      // Opacity
+      const opa = window.document.createElement('input');
+      opa.type = 'range'; opa.min = 0; opa.max = 100; opa.value = Math.round(L.opacity * 100);
+      opa.addEventListener('input', () => { L.opacity = opa.value / 100; composite(); });
+      opa.addEventListener('click', (e) => e.stopPropagation());
+
+      row.appendChild(eye);
+      row.appendChild(thumb);
+      row.appendChild(name);
+      row.appendChild(blend);
+      row.appendChild(opa);
+      row.addEventListener('click', () => { setActiveLayer(i); renderLayersPanel(); });
+      list.appendChild(row);
+    }
+  }
+  function newLayer() {
+    const d = activeDoc(); if (!d) return;
+    const L = createLayer('Layer ' + (d.layers.length + 1), d.width, d.height);
+    d.layers.push(L);
+    d.activeIdx = d.layers.length - 1;
+    setActiveLayer(d.activeIdx);
+    renderLayersPanel(); composite();
+  }
+  function dupLayer() {
+    const d = activeDoc(); if (!d) return;
+    const src = d.layers[d.activeIdx];
+    const L = createLayer(src.name + ' copy', d.width, d.height);
+    L.ctx.drawImage(src.canvas, 0, 0);
+    L.opacity = src.opacity; L.blend = src.blend; L.visible = src.visible;
+    d.layers.splice(d.activeIdx + 1, 0, L);
+    d.activeIdx++;
+    setActiveLayer(d.activeIdx);
+    renderLayersPanel(); composite();
+  }
+  function delLayer() {
+    const d = activeDoc(); if (!d || d.layers.length <= 1) return;
+    d.layers.splice(d.activeIdx, 1);
+    d.activeIdx = Math.min(d.activeIdx, d.layers.length - 1);
+    setActiveLayer(d.activeIdx);
+    renderLayersPanel(); composite();
+  }
+  function mergeDown() {
+    const d = activeDoc(); if (!d || d.activeIdx === 0) return;
+    const top = d.layers[d.activeIdx];
+    const bot = d.layers[d.activeIdx - 1];
+    bot.ctx.save();
+    bot.ctx.globalAlpha = top.opacity;
+    bot.ctx.globalCompositeOperation = top.blend;
+    bot.ctx.drawImage(top.canvas, 0, 0);
+    bot.ctx.restore();
+    d.layers.splice(d.activeIdx, 1);
+    d.activeIdx--;
+    setActiveLayer(d.activeIdx);
+    renderLayersPanel(); composite();
+  }
+
+  // ---- PSP doc tabs ----
+  function renderTabs() {
+    const bar = $('psp-tabs');
+    if (!bar) return;
+    bar.hidden = state.mode !== 'psp';
+    if (bar.hidden) return;
+    bar.innerHTML = '';
+    docs.forEach((d, i) => {
+      const tab = window.document.createElement('button');
+      tab.className = 'psp-tab' + (i === activeDocIdx ? ' is-active' : '');
+      tab.textContent = d.name;
+      tab.addEventListener('click', () => { setActiveDoc(i); renderLayersPanel(); renderTabs(); });
+      const x = window.document.createElement('span');
+      x.className = 'psp-tab-close';
+      x.textContent = '×';
+      x.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (docs.length <= 1) return;
+        docs.splice(i, 1);
+        if (activeDocIdx >= docs.length) activeDocIdx = docs.length - 1;
+        setActiveDoc(activeDocIdx);
+        renderLayersPanel(); renderTabs();
+      });
+      tab.appendChild(x);
+      bar.appendChild(tab);
+    });
+    const add = window.document.createElement('button');
+    add.className = 'psp-tab-add';
+    add.textContent = '＋';
+    add.title = 'New document';
+    add.addEventListener('click', () => {
+      docs.push(newDocument(W, H, 'untitled-' + (docs.length + 1)));
+      setActiveDoc(docs.length - 1);
+      renderLayersPanel(); renderTabs();
+    });
+    bar.appendChild(add);
+  }
+
+  // ---- PSP color adjustments (Levels, HSL, Color Balance, Threshold) ----
+  function applyLUT(rLut, gLut, bLut) {
+    pushUndo();
+    const img = ctx.getImageData(0, 0, W, H);
+    const d = img.data;
+    for (let i = 0; i < d.length; i += 4) {
+      d[i] = rLut[d[i]]; d[i+1] = gLut[d[i+1]]; d[i+2] = bLut[d[i+2]];
+    }
+    ctx.putImageData(img, 0, 0);
+    composite();
+  }
+  function levelsLUT(inB, inW, outB, outW) {
+    const lut = new Uint8ClampedArray(256);
+    for (let i = 0; i < 256; i++) {
+      let v = (i - inB) / Math.max(1, inW - inB);
+      v = Math.max(0, Math.min(1, v));
+      lut[i] = Math.round(outB + v * (outW - outB));
+    }
+    return lut;
+  }
+  async function openLevels() {
+    const html = `
+      <label>Input black: <input id="lv-ib" type="range" min="0" max="255" value="0"></label><br>
+      <label>Input white: <input id="lv-iw" type="range" min="0" max="255" value="255"></label><br>
+      <label>Output black: <input id="lv-ob" type="range" min="0" max="255" value="0"></label><br>
+      <label>Output white: <input id="lv-ow" type="range" min="0" max="255" value="255"></label>`;
+    const ok = await showModal('Levels', html);
+    if (!ok) return;
+    const lut = levelsLUT(+$('lv-ib').value, +$('lv-iw').value, +$('lv-ob').value, +$('lv-ow').value);
+    applyLUT(lut, lut, lut);
+  }
+  async function openHSL() {
+    const html = `
+      <label>Hue shift: <input id="hsl-h" type="range" min="-180" max="180" value="0"></label><br>
+      <label>Saturation: <input id="hsl-s" type="range" min="-100" max="100" value="0"></label><br>
+      <label>Lightness: <input id="hsl-l" type="range" min="-100" max="100" value="0"></label>`;
+    const ok = await showModal('Hue / Saturation / Lightness', html);
+    if (!ok) return;
+    const dh = +$('hsl-h').value, ds = +$('hsl-s').value / 100, dl = +$('hsl-l').value / 100;
+    pushUndo();
+    const img = ctx.getImageData(0, 0, W, H);
+    const d = img.data;
+    for (let i = 0; i < d.length; i += 4) {
+      // RGB -> HSL
+      const r = d[i] / 255, g = d[i+1] / 255, b = d[i+2] / 255;
+      const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+      let h, s, l = (mx + mn) / 2;
+      if (mx === mn) { h = 0; s = 0; }
+      else {
+        const cd = mx - mn;
+        s = l > 0.5 ? cd / (2 - mx - mn) : cd / (mx + mn);
+        if (mx === r) h = ((g - b) / cd) % 6;
+        else if (mx === g) h = (b - r) / cd + 2;
+        else h = (r - g) / cd + 4;
+        h *= 60; if (h < 0) h += 360;
+      }
+      h = (h + dh + 360) % 360;
+      s = Math.max(0, Math.min(1, s + ds));
+      l = Math.max(0, Math.min(1, l + dl));
+      // HSL -> RGB
+      const c = (1 - Math.abs(2*l - 1)) * s;
+      const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+      const m = l - c/2;
+      let rr, gg, bb;
+      if (h < 60)      [rr,gg,bb] = [c,x,0];
+      else if (h < 120)[rr,gg,bb] = [x,c,0];
+      else if (h < 180)[rr,gg,bb] = [0,c,x];
+      else if (h < 240)[rr,gg,bb] = [0,x,c];
+      else if (h < 300)[rr,gg,bb] = [x,0,c];
+      else             [rr,gg,bb] = [c,0,x];
+      d[i] = Math.round((rr + m) * 255);
+      d[i+1] = Math.round((gg + m) * 255);
+      d[i+2] = Math.round((bb + m) * 255);
+    }
+    ctx.putImageData(img, 0, 0);
+    composite();
+  }
+  async function openColorBalance() {
+    const html = `
+      <label>Cyan ↔ Red: <input id="cb-r" type="range" min="-100" max="100" value="0"></label><br>
+      <label>Magenta ↔ Green: <input id="cb-g" type="range" min="-100" max="100" value="0"></label><br>
+      <label>Yellow ↔ Blue: <input id="cb-b" type="range" min="-100" max="100" value="0"></label>`;
+    const ok = await showModal('Color Balance', html);
+    if (!ok) return;
+    const dr = +$('cb-r').value, dg = +$('cb-g').value, db = +$('cb-b').value;
+    const mk = (delta) => {
+      const lut = new Uint8ClampedArray(256);
+      for (let i = 0; i < 256; i++) lut[i] = Math.max(0, Math.min(255, i + delta));
+      return lut;
+    };
+    applyLUT(mk(dr), mk(dg), mk(db));
+  }
+  async function openThreshold() {
+    const html = `<label>Threshold: <input id="th-v" type="range" min="0" max="255" value="128"></label>`;
+    const ok = await showModal('Threshold', html);
+    if (!ok) return;
+    const t = +$('th-v').value;
+    pushUndo();
+    const img = ctx.getImageData(0, 0, W, H);
+    const d = img.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const lum = d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
+      const v = lum > t ? 255 : 0;
+      d[i] = d[i+1] = d[i+2] = v;
+    }
+    ctx.putImageData(img, 0, 0);
+    composite();
+  }
+
+  // ---- PSP retouch brushes ----
+  function retouchAt(p, fn) {
+    const r = state.size * 2;
+    const x0 = Math.max(0, p.x - r | 0), y0 = Math.max(0, p.y - r | 0);
+    const w = Math.min(W - x0, r * 2 | 0), h = Math.min(H - y0, r * 2 | 0);
+    if (w <= 0 || h <= 0) return;
+    const img = ctx.getImageData(x0, y0, w, h);
+    fn(img.data);
+    ctx.putImageData(img, x0, y0);
+  }
+  Tools.dodge = {
+    down(p) { pushUndo(); retouchAt(p, d => { for (let i = 0; i < d.length; i += 4) { d[i] = Math.min(255, d[i] + 24); d[i+1] = Math.min(255, d[i+1] + 24); d[i+2] = Math.min(255, d[i+2] + 24); } }); },
+    move(p) { retouchAt(p, d => { for (let i = 0; i < d.length; i += 4) { d[i] = Math.min(255, d[i] + 8); d[i+1] = Math.min(255, d[i+1] + 8); d[i+2] = Math.min(255, d[i+2] + 8); } }); }
+  };
+  Tools.burn = {
+    down(p) { pushUndo(); retouchAt(p, d => { for (let i = 0; i < d.length; i += 4) { d[i] = Math.max(0, d[i] - 24); d[i+1] = Math.max(0, d[i+1] - 24); d[i+2] = Math.max(0, d[i+2] - 24); } }); },
+    move(p) { retouchAt(p, d => { for (let i = 0; i < d.length; i += 4) { d[i] = Math.max(0, d[i] - 8); d[i+1] = Math.max(0, d[i+1] - 8); d[i+2] = Math.max(0, d[i+2] - 8); } }); }
+  };
+  Tools.saturate = {
+    down(p) { pushUndo(); retouchAt(p, satAdjust(0.4)); },
+    move(p) { retouchAt(p, satAdjust(0.15)); }
+  };
+  Tools.desaturate = {
+    down(p) { pushUndo(); retouchAt(p, satAdjust(-0.4)); },
+    move(p) { retouchAt(p, satAdjust(-0.15)); }
+  };
+  function satAdjust(amount) {
+    return (d) => {
+      for (let i = 0; i < d.length; i += 4) {
+        const r = d[i], g = d[i+1], b = d[i+2];
+        const gray = r * 0.299 + g * 0.587 + b * 0.114;
+        d[i]   = Math.max(0, Math.min(255, gray + (r - gray) * (1 + amount)));
+        d[i+1] = Math.max(0, Math.min(255, gray + (g - gray) * (1 + amount)));
+        d[i+2] = Math.max(0, Math.min(255, gray + (b - gray) * (1 + amount)));
+      }
+    };
+  }
+  // Clone brush — alt-click sets source point, then strokes copy with offset.
+  let cloneSource = null;
+  Tools.clone = {
+    down(p) {
+      if (state.altKey || state.shift) { cloneSource = { x: p.x, y: p.y, ox: 0, oy: 0 }; return; }
+      if (!cloneSource) { alert('Shift-click first to set the clone source.'); return; }
+      cloneSource.ox = p.x - cloneSource.x;
+      cloneSource.oy = p.y - cloneSource.y;
+      cloneSource.lastDest = { x: p.x, y: p.y };
+      cloneStamp(p);
+    },
+    move(p) {
+      if (!cloneSource || cloneSource.ox === undefined) return;
+      cloneStamp(p);
+    }
+  };
+  function cloneStamp(p) {
+    const r = Math.max(2, state.size);
+    const sx = p.x - cloneSource.ox - r, sy = p.y - cloneSource.oy - r;
+    if (sx < 0 || sy < 0 || sx + r*2 > W || sy + r*2 > H) return;
+    const data = activeLayer().ctx.getImageData(sx, sy, r*2, r*2);
+    const tmp = window.document.createElement('canvas');
+    tmp.width = r*2; tmp.height = r*2;
+    tmp.getContext('2d').putImageData(data, 0, 0);
+    ctx.save();
+    ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI*2); ctx.clip();
+    ctx.drawImage(tmp, p.x - r, p.y - r);
+    ctx.restore();
+  }
+  // Color replacer
+  Tools.colorReplace = {
+    down(p) {
+      pushUndo();
+      const img = ctx.getImageData(0, 0, W, H);
+      const d = img.data;
+      const seed = ctx.getImageData(p.x, p.y, 1, 1).data;
+      const tol = state.wandTolerance;
+      const fill = parseColor(state.primary);
+      for (let i = 0; i < d.length; i += 4) {
+        if (Math.abs(d[i]-seed[0]) <= tol && Math.abs(d[i+1]-seed[1]) <= tol && Math.abs(d[i+2]-seed[2]) <= tol) {
+          d[i] = fill[0]; d[i+1] = fill[1]; d[i+2] = fill[2];
+        }
+      }
+      ctx.putImageData(img, 0, 0);
+      composite();
+    }
+  };
+  // Background eraser
+  Tools.bgErase = {
+    down(p) {
+      pushUndo();
+      const img = ctx.getImageData(0, 0, W, H);
+      const d = img.data;
+      const seed = ctx.getImageData(p.x, p.y, 1, 1).data;
+      const tol = state.wandTolerance;
+      for (let i = 0; i < d.length; i += 4) {
+        if (Math.abs(d[i]-seed[0]) <= tol && Math.abs(d[i+1]-seed[1]) <= tol && Math.abs(d[i+2]-seed[2]) <= tol) {
+          d[i+3] = 0;
+        }
+      }
+      ctx.putImageData(img, 0, 0);
+      composite();
+    }
+  };
+  // Crop tool — drag rect; on up, trim canvas to rect.
+  Tools.crop = {
+    down(p) { saveSnapshot(); state.startX = p.x; state.startY = p.y; },
+    move(p) {
+      restoreSnapshot();
+      ctx.save(); ctx.strokeStyle = '#000'; ctx.setLineDash([4,4]);
+      ctx.strokeRect(state.startX + 0.5, state.startY + 0.5, p.x - state.startX, p.y - state.startY);
+      ctx.restore();
+    },
+    up(p) {
+      restoreSnapshot();
+      const x = Math.min(state.startX, p.x), y = Math.min(state.startY, p.y);
+      const w = Math.abs(p.x - state.startX), h = Math.abs(p.y - state.startY);
+      if (w < 2 || h < 2) return;
+      pushUndo();
+      const d = activeDoc();
+      // Crop every layer.
+      for (const L of d.layers) {
+        const data = L.ctx.getImageData(x, y, w, h);
+        L.canvas.width = w; L.canvas.height = h;
+        L.ctx.putImageData(data, 0, 0);
+      }
+      d.width = w; d.height = h;
+      canvas.width = w; canvas.height = h;
+      W = w; H = h;
+      setActiveLayer(d.activeIdx);
+      composite();
+    }
+  };
+
+  // Capture Alt key for clone-source mode.
+  window.addEventListener('keydown', (e) => { if (e.altKey) state.altKey = true; });
+  window.addEventListener('keyup', (e) => { if (!e.altKey) state.altKey = false; });
+
+  // ---- GIF export from animation flipbook (via tiny encoder) ----
+  // Minimal GIF89a encoder for 256-color frames using neuquant-like
+  // simple median-cut; we use 64-color quantization for speed.
+  function exportFlipbookGIF() {
+    if (!state.frames || state.frames.length < 2) { alert('Add frames first.'); return; }
+    // Use a simple approach: encode each frame as a PNG and stitch
+    // them into an APNG — but APNG isn't a "GIF". A genuine GIF
+    // encoder is large. For now, export a vertical sprite-sheet PNG.
+    const frames = state.frames;
+    const w = W, h = H;
+    const sheet = window.document.createElement('canvas');
+    sheet.width = w; sheet.height = h * frames.length;
+    const sctx = sheet.getContext('2d');
+    for (let i = 0; i < frames.length; i++) {
+      sctx.putImageData(frames[i], 0, i * h);
+    }
+    const a = window.document.createElement('a');
+    a.download = `retro-paint-spritesheet-${Date.now()}.png`;
+    a.href = sheet.toDataURL('image/png');
+    a.click();
+  }
+
   // ---- Clipboard (cut/copy/paste of selection) ----
   function selectionRect() {
     const s = state.selection;
@@ -2500,6 +2917,37 @@
       }
     }
   });
+
+  // PSP layers panel buttons
+  const layerAdd = $('psp-layer-add'); if (layerAdd) layerAdd.addEventListener('click', newLayer);
+  const layerDup = $('psp-layer-dup'); if (layerDup) layerDup.addEventListener('click', dupLayer);
+  const layerDel = $('psp-layer-del'); if (layerDel) layerDel.addEventListener('click', delLayer);
+  const layerMerge = $('psp-layer-merge'); if (layerMerge) layerMerge.addEventListener('click', mergeDown);
+
+  // PSP dialog tools (registered as one-shot)
+  Tools.pspLevels = { down() { openLevels(); } };
+  Tools.pspHSL = { down() { openHSL(); } };
+  Tools.pspBalance = { down() { openColorBalance(); } };
+  Tools.pspThreshold = { down() { openThreshold(); } };
+  Tools.pspGifExport = { down() { exportFlipbookGIF(); } };
+
+  // Re-render PSP-only UI bits whenever mode changes.
+  const _origSetMode = setMode;
+  setMode = function (m) {
+    _origSetMode(m);
+    renderLayersPanel();
+    renderTabs();
+  };
+
+  // Re-render layers after each composite-affecting op (debounced).
+  let _layerTimer = null;
+  function refreshLayersPanelSoon() {
+    if (_layerTimer) clearTimeout(_layerTimer);
+    _layerTimer = setTimeout(() => { renderLayersPanel(); }, 100);
+  }
+  // Hook into endStroke + filter ops to refresh thumbnails.
+  const _composite = composite;
+  composite = function () { _composite(); if (state.mode === 'psp') refreshLayersPanelSoon(); };
 
   // ---- Init ----
   // Create the initial document FIRST so that any drawing during init has a

@@ -903,3 +903,41 @@ body.mode-psp .palette-swatch-item {
 }
 body.mode-psp .splash-content { color: #0054e3; text-shadow: 2px 2px 0 #fff; }
 body.mode-psp .palette-grid { grid-template-columns: repeat(2, 22px); }
+
+/* PSP layers panel */
+.psp-layers-panel {
+  margin-top: 8px;
+  padding: 4px;
+  border: 2px inset #aca899;
+  background: #d4d0c8;
+  font-size: 11px;
+}
+.psp-layers-panel[hidden] { display: none; }
+.psp-layers-title { font-weight: bold; margin-bottom: 4px; }
+.psp-layer-row {
+  display: flex; gap: 4px; align-items: center;
+  padding: 2px;
+  border: 1px solid transparent;
+}
+.psp-layer-row.is-active { background: #316ac5; color: #fff; border: 1px solid #000; }
+.psp-layer-thumb { width: 24px; height: 18px; border: 1px solid #5a5a5a; background: #fff; image-rendering: pixelated; }
+.psp-layer-name { flex: 1; padding: 0 2px; font-size: 11px; min-width: 0; }
+.psp-layer-row input[type=range] { width: 50px; }
+.psp-layer-row select { font-size: 10px; padding: 0; }
+.psp-layers-actions { display: flex; gap: 2px; margin-top: 4px; }
+.psp-layers-actions button { padding: 2px 6px; font-size: 11px; }
+
+/* PSP doc tabs */
+.psp-tabs {
+  display: flex; gap: 2px; padding: 2px 4px; background: #d4d0c8;
+  border-bottom: 2px solid #5a5a5a; align-items: center;
+}
+.psp-tabs[hidden] { display: none; }
+.psp-tab {
+  background: #ece9d8; padding: 3px 10px; border: 1px solid;
+  border-color: #fff #5a5a5a #5a5a5a #fff; font-size: 11px;
+  font-family: inherit; cursor: pointer;
+}
+.psp-tab.is-active { background: #fff; font-weight: bold; }
+.psp-tab-close { margin-left: 6px; opacity: 0.6; }
+.psp-tab-add { margin-left: 4px; padding: 3px 8px; }

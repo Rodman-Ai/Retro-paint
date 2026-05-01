@@ -642,7 +642,7 @@
       { id: 'tpOpenSlot', label: 'OpenSlot', icon: '📂' },
       { id: 'tpSlideshow', label: 'Show', icon: '🎞️' }
     ],
-    // Paint Shop Pro — Phase 1 pro-toolbox; Phase 5 adds layers UI, dialogs, clone, tabs.
+    // Paint Shop Pro — full pro toolbox: drawing + retouch + selection + dialogs.
     psp: [
       { id: 'pencil', label: 'Pencil', icon: '✏️', shortcut: 'p' },
       { id: 'brush', label: 'Brush', icon: '🖌️', shortcut: 'b' },
@@ -658,7 +658,25 @@
       { id: 'ellipseFill', label: 'Oval•', icon: '⬤' },
       { id: 'gradient', label: 'Gradient', icon: '🌈', shortcut: 'g' },
       { id: 'text', label: 'Text', icon: 'T', shortcut: 't' },
-      { id: 'select', label: 'Select', icon: '⬚', shortcut: 'a' }
+      // Selection / wand / lasso
+      { id: 'select', label: 'Marquee', icon: '⬚', shortcut: 'a' },
+      { id: 'lasso', label: 'Lasso', icon: '◌' },
+      { id: 'wand', label: 'Wand', icon: '🪄' },
+      { id: 'crop', label: 'Crop', icon: '⛶' },
+      // Retouch
+      { id: 'clone', label: 'Clone', icon: '🖼️' },
+      { id: 'dodge', label: 'Dodge', icon: '☼' },
+      { id: 'burn', label: 'Burn', icon: '☾' },
+      { id: 'saturate', label: 'Saturate', icon: '🎨' },
+      { id: 'desaturate', label: 'Desat', icon: '◐' },
+      { id: 'colorReplace', label: 'Replace', icon: '🔄' },
+      { id: 'bgErase', label: 'BG-Erase', icon: '⌫' },
+      // Adjustment dialogs
+      { id: 'pspLevels', label: 'Levels', icon: '📊' },
+      { id: 'pspHSL', label: 'HSL', icon: '🌈' },
+      { id: 'pspBalance', label: 'Balance', icon: '⚖️' },
+      { id: 'pspThreshold', label: 'Thresh', icon: '◑' },
+      { id: 'pspGifExport', label: 'Export', icon: '🎞️' }
     ]
   };
 
