@@ -763,7 +763,27 @@
       { id: 'cbsim', label: 'CB-Sim', icon: '👁️' },
       { id: 'theme', label: 'Theme', icon: '🌓' },
       { id: 'snap', label: 'Snap-Px', icon: '📐' },
-      { id: 'rulers', label: 'Rulers', icon: '📏' }
+      { id: 'rulers', label: 'Rulers', icon: '📏' },
+      // Phase 2: brush engine + selection power
+      { id: 'brushDyn', label: 'BrushDyn', icon: '🎚️' },
+      { id: 'defineBrush', label: 'DefBrush', icon: '🧷' },
+      { id: 'clearBrush', label: 'NoBrush', icon: '○' },
+      { id: 'pressureCurve', label: 'PCurve', icon: '🎢' },
+      { id: 'saveBrush', label: 'SaveBrush', icon: '💾' },
+      { id: 'loadBrush', label: 'LoadBrush', icon: '📂' },
+      { id: 'brushPattern', label: 'PatBrush', icon: '🔳' },
+      { id: 'bristleBrush', label: 'Bristle', icon: '🪥' },
+      { id: 'polyLasso', label: 'PolyLasso', icon: '◇' },
+      { id: 'magneticLasso', label: 'MagLasso', icon: '🧲' },
+      { id: 'quickSelect', label: 'QuickSel', icon: '⚡' },
+      { id: 'magicEraser', label: 'MagiEras', icon: '🪄' },
+      { id: 'colorRange', label: 'ColorRng', icon: '🌈' },
+      { id: 'selFeather', label: 'Feather', icon: '🪶' },
+      { id: 'selRefine', label: 'Refine', icon: '✨' },
+      { id: 'selSave', label: 'SaveSel', icon: '🔖' },
+      { id: 'selLoad', label: 'LoadSel', icon: '📑' },
+      { id: 'selFromAlpha', label: 'FromAlpha', icon: '⬛' },
+      { id: 'quickMask', label: 'QuickMsk', icon: '🟥' }
     ]
   };
 

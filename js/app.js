@@ -3285,6 +3285,468 @@
   canvas.addEventListener('pointermove', () => { if (hudTimer) { clearTimeout(hudTimer); hudTimer = null; } });
   canvas.addEventListener('pointerup', () => { if (hudTimer) { clearTimeout(hudTimer); hudTimer = null; } });
 
+  // ====================================================================
+  // PHASE 2 (round 2) — brush engine + selection power tools
+  // ====================================================================
+
+  // ---- Brush dynamics state ----
+  state.brushDynamics = {
+    sizeJitter: 0,     // 0..1
+    opacityJitter: 0,
+    colorJitter: 0,
+    angleJitter: 0,
+    spacing: 0.25,     // fraction of brush size between dabs
+    scatter: 0,        // px of radial offset
+    stabilizer: 0,     // 0..1, how much to smooth
+    airbrush: false
+  };
+  state.customBrushTip = null;        // ImageData of a custom brush from selection
+  state.pressureCurve = [0, 0.25, 0.5, 0.75, 1]; // 5 control points 0..1
+
+  function brushColorJittered() {
+    if (!state.brushDynamics.colorJitter) return state.primary;
+    const rgb = parseColor(state.primary);
+    const j = state.brushDynamics.colorJitter * 60;
+    const tweak = (v) => Math.max(0, Math.min(255, v + (Math.random() - 0.5) * 2 * j));
+    return rgbToHex([tweak(rgb[0]), tweak(rgb[1]), tweak(rgb[2])]);
+  }
+  function brushSizeJittered() {
+    const j = state.brushDynamics.sizeJitter;
+    if (!j) return state.size;
+    return Math.max(1, state.size * (1 + (Math.random() - 0.5) * 2 * j));
+  }
+  function brushOpacityJittered() {
+    const j = state.brushDynamics.opacityJitter;
+    if (!j) return state.opacity;
+    return Math.max(0.05, Math.min(1, state.opacity * (1 + (Math.random() - 0.5) * 2 * j)));
+  }
+  function brushOffsetScattered() {
+    const s = state.brushDynamics.scatter;
+    if (!s) return [0, 0];
+    const a = Math.random() * Math.PI * 2;
+    const r = Math.random() * s;
+    return [Math.cos(a) * r, Math.sin(a) * r];
+  }
+
+  // Helper to draw a single brush dab respecting all dynamics.
+  function drawDab(c, x, y) {
+    const sz = brushSizeJittered();
+    const [ox, oy] = brushOffsetScattered();
+    c.save();
+    c.globalAlpha = brushOpacityJittered();
+    if (state.customBrushTip) {
+      // Stamp custom brush tip canvas at (x,y).
+      const tmp = window.document.createElement('canvas');
+      tmp.width = state.customBrushTip.width;
+      tmp.height = state.customBrushTip.height;
+      tmp.getContext('2d').putImageData(state.customBrushTip, 0, 0);
+      const w = sz * 2;
+      const ang = state.brushDynamics.angleJitter ? Math.random() * Math.PI * 2 * state.brushDynamics.angleJitter : 0;
+      c.translate(x + ox, y + oy);
+      c.rotate(ang);
+      c.drawImage(tmp, -w/2, -w/2, w, w);
+    } else {
+      c.fillStyle = brushColorJittered();
+      c.beginPath();
+      c.arc(x + ox, y + oy, sz, 0, Math.PI * 2);
+      c.fill();
+    }
+    c.restore();
+  }
+
+  // Stabilized point queue: smooth using a simple lerp toward target.
+  let stabQueue = null;
+  function stabPoint(p) {
+    const w = state.brushDynamics.stabilizer;
+    if (!w) return p;
+    if (!stabQueue) stabQueue = { x: p.x, y: p.y };
+    stabQueue.x += (p.x - stabQueue.x) * (1 - w);
+    stabQueue.y += (p.y - stabQueue.y) * (1 - w);
+    return { x: stabQueue.x, y: stabQueue.y };
+  }
+
+  // ---- Override existing brush tool with dynamics-aware version ----
+  const _origBrush = Tools.brush;
+  Tools.brush = {
+    down(p) {
+      stabQueue = null;
+      const q = stabPoint(p);
+      drawDab(ctx, q.x, q.y);
+    },
+    move(p) {
+      const q = stabPoint(p);
+      const lx = state.lastX, ly = state.lastY;
+      const dx = q.x - lx, dy = q.y - ly;
+      const dist = Math.hypot(dx, dy);
+      const step = Math.max(1, state.size * Math.max(0.05, state.brushDynamics.spacing));
+      const n = Math.max(1, Math.ceil(dist / step));
+      for (let i = 1; i <= n; i++) {
+        const f = i / n;
+        drawDab(ctx, lx + dx * f, ly + dy * f);
+      }
+    },
+    up() { stabQueue = null; }
+  };
+
+  // ---- Air-brush mode: tick continuously while held still ----
+  let airTimer = null;
+  const _origDispatchTool = dispatchTool;
+  dispatchTool = function (phase, p) {
+    _origDispatchTool(phase, p);
+    if (phase === 'down' && state.tool === 'brush' && state.brushDynamics.airbrush) {
+      let lastP = p;
+      airTimer = setInterval(() => { if (state.drawing) drawDab(ctx, lastP.x, lastP.y); composite(); }, 50);
+      const stopAir = () => { if (airTimer) { clearInterval(airTimer); airTimer = null; } };
+      canvas.addEventListener('pointerup', stopAir, { once: true });
+      canvas.addEventListener('pointercancel', stopAir, { once: true });
+    }
+  };
+
+  // ---- Custom brush from selection ----
+  Tools.defineBrush = {
+    down() {
+      const r = selectionRect(); if (!r) { alert('Make a selection first.'); return; }
+      try { state.customBrushTip = ctx.getImageData(r.x, r.y, r.w, r.h); } catch (e) {}
+      alert('Custom brush set from selection. Pick the Brush tool to use it.');
+    }
+  };
+  Tools.clearBrush = { down() { state.customBrushTip = null; } };
+
+  // ---- Brush dynamics modal ----
+  Tools.brushDyn = {
+    async down() {
+      const d = state.brushDynamics;
+      const html = `
+        <label>Size jitter <input id="bd-sz" type="range" min="0" max="100" value="${d.sizeJitter*100|0}"></label><br>
+        <label>Opacity jitter <input id="bd-op" type="range" min="0" max="100" value="${d.opacityJitter*100|0}"></label><br>
+        <label>Color jitter <input id="bd-col" type="range" min="0" max="100" value="${d.colorJitter*100|0}"></label><br>
+        <label>Angle jitter <input id="bd-ang" type="range" min="0" max="100" value="${d.angleJitter*100|0}"></label><br>
+        <label>Spacing <input id="bd-sp" type="range" min="5" max="200" value="${d.spacing*100|0}"> %</label><br>
+        <label>Scatter <input id="bd-sc" type="range" min="0" max="50" value="${d.scatter|0}"> px</label><br>
+        <label>Stabilizer <input id="bd-st" type="range" min="0" max="95" value="${d.stabilizer*100|0}"> %</label><br>
+        <label><input id="bd-air" type="checkbox" ${d.airbrush?'checked':''}> Air-brush mode</label>`;
+      const ok = await showModal('Brush dynamics', html);
+      if (!ok) return;
+      d.sizeJitter = +$('bd-sz').value / 100;
+      d.opacityJitter = +$('bd-op').value / 100;
+      d.colorJitter = +$('bd-col').value / 100;
+      d.angleJitter = +$('bd-ang').value / 100;
+      d.spacing = +$('bd-sp').value / 100;
+      d.scatter = +$('bd-sc').value;
+      d.stabilizer = +$('bd-st').value / 100;
+      d.airbrush = $('bd-air').checked;
+    }
+  };
+
+  // ---- Brush presets save/load ----
+  let brushPresets = [];
+  try { brushPresets = JSON.parse(localStorage.getItem('retropaint:brushes') || '[]'); } catch (e) {}
+  Tools.saveBrush = {
+    down() {
+      const name = prompt('Brush preset name:'); if (!name) return;
+      brushPresets.push({ name, dyn: { ...state.brushDynamics }, size: state.size, opacity: state.opacity });
+      try { localStorage.setItem('retropaint:brushes', JSON.stringify(brushPresets)); } catch (e) {}
+    }
+  };
+  Tools.loadBrush = {
+    down() {
+      if (!brushPresets.length) { alert('No brush presets yet.'); return; }
+      const list = brushPresets.map((b, i) => `${i + 1}. ${b.name}`).join('\n');
+      const idx = +prompt('Pick preset:\n' + list, '1') - 1;
+      const b = brushPresets[idx]; if (!b) return;
+      Object.assign(state.brushDynamics, b.dyn);
+      state.size = b.size; sizeInput.value = b.size; sizeDisp.textContent = b.size;
+      state.opacity = b.opacity;
+    }
+  };
+
+  // ---- Pattern brush (paint with a repeating tile) ----
+  state.brushPattern = null;
+  Tools.brushPattern = {
+    down() {
+      const r = selectionRect(); if (!r) { alert('Select a tileable region first.'); return; }
+      const data = ctx.getImageData(r.x, r.y, r.w, r.h);
+      const tmp = window.document.createElement('canvas');
+      tmp.width = r.w; tmp.height = r.h;
+      tmp.getContext('2d').putImageData(data, 0, 0);
+      state.brushPattern = ctx.createPattern(tmp, 'repeat');
+      alert('Pattern brush set. Brush strokes will use this pattern.');
+    }
+  };
+
+  // ---- Bristle brush (multiple offset strokes per dab) ----
+  Tools.bristleBrush = {
+    down(p) { drawBristle(p.x, p.y, p.x, p.y); },
+    move(p) {
+      const lx = state.lastX, ly = state.lastY;
+      drawBristle(p.x, p.y, lx, ly);
+    }
+  };
+  function drawBristle(x, y, lx, ly) {
+    const r = state.size;
+    for (let i = 0; i < 6; i++) {
+      const ax = (Math.random() - 0.5) * r * 1.5;
+      const ay = (Math.random() - 0.5) * r * 1.5;
+      ctx.strokeStyle = brushColorJittered();
+      ctx.lineWidth = 1 + Math.random();
+      ctx.lineCap = 'round';
+      ctx.globalAlpha = state.opacity * 0.6;
+      ctx.beginPath();
+      ctx.moveTo(lx + ax, ly + ay);
+      ctx.lineTo(x + ax, y + ay);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // ---- Pressure curve editor (mini graph) ----
+  Tools.pressureCurve = {
+    async down() {
+      const c = state.pressureCurve.slice();
+      const html = `
+        <div>Pressure → size factor at 5 points (0%, 25%, 50%, 75%, 100%):</div>
+        ${c.map((v, i) => `<label>P${i*25}% <input class="pc" data-i="${i}" type="range" min="0" max="200" value="${v*100|0}"></label><br>`).join('')}`;
+      const ok = await showModal('Pressure curve', html);
+      if (!ok) return;
+      window.document.querySelectorAll('.pc').forEach(inp => {
+        const i = +inp.dataset.i;
+        state.pressureCurve[i] = +inp.value / 100;
+      });
+    }
+  };
+
+  // ---- Polygonal lasso (click anchors; double-click to close) ----
+  let polyPoints = null;
+  Tools.polyLasso = {
+    down(p) {
+      if (!polyPoints) polyPoints = [];
+      polyPoints.push({ x: p.x, y: p.y });
+      saveSnapshot();
+      // Draw current polyline
+      restoreSnapshot();
+      ctx.save(); ctx.strokeStyle = '#000'; ctx.setLineDash([3,3]);
+      ctx.beginPath();
+      ctx.moveTo(polyPoints[0].x, polyPoints[0].y);
+      for (let i = 1; i < polyPoints.length; i++) ctx.lineTo(polyPoints[i].x, polyPoints[i].y);
+      ctx.stroke();
+      ctx.restore();
+      // Double-click closes (detect by short time gap).
+      if (polyPoints.length >= 3) {
+        const last = polyPoints[polyPoints.length - 2];
+        if (Math.hypot(p.x - last.x, p.y - last.y) < 4) {
+          // Close
+          const path = new Path2D();
+          path.moveTo(polyPoints[0].x, polyPoints[0].y);
+          for (let i = 1; i < polyPoints.length; i++) path.lineTo(polyPoints[i].x, polyPoints[i].y);
+          path.closePath();
+          state.selection = { kind: 'lasso', path, points: polyPoints,
+            bounds: polyBounds(polyPoints) };
+          polyPoints = null;
+          composite();
+        }
+      }
+    }
+  };
+  function polyBounds(pts) {
+    let mx = Infinity, my = Infinity, Mx = -Infinity, My = -Infinity;
+    for (const q of pts) { mx = Math.min(mx, q.x); my = Math.min(my, q.y); Mx = Math.max(Mx, q.x); My = Math.max(My, q.y); }
+    return { x: mx | 0, y: my | 0, w: (Mx - mx) | 0 + 1, h: (My - my) | 0 + 1 };
+  }
+
+  // ---- Magnetic lasso (snap to high-contrast edges along path) ----
+  Tools.magneticLasso = {
+    down(p) { state.magPath = [{ x: p.x, y: p.y }]; saveSnapshot(); },
+    move(p) {
+      if (!state.magPath) return;
+      // Search for nearest edge in a small radius around p.
+      const radius = 8;
+      const best = findEdgeNear(p.x, p.y, radius);
+      const target = best || p;
+      state.magPath.push({ x: target.x, y: target.y });
+      restoreSnapshot();
+      ctx.save(); ctx.strokeStyle = '#0a0'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(state.magPath[0].x, state.magPath[0].y);
+      for (let i = 1; i < state.magPath.length; i++) ctx.lineTo(state.magPath[i].x, state.magPath[i].y);
+      ctx.stroke();
+      ctx.restore();
+    },
+    up() {
+      if (!state.magPath || state.magPath.length < 3) { state.magPath = null; return; }
+      restoreSnapshot();
+      const path = new Path2D();
+      path.moveTo(state.magPath[0].x, state.magPath[0].y);
+      for (let i = 1; i < state.magPath.length; i++) path.lineTo(state.magPath[i].x, state.magPath[i].y);
+      path.closePath();
+      state.selection = { kind: 'lasso', path, points: state.magPath, bounds: polyBounds(state.magPath) };
+      state.magPath = null; composite();
+    }
+  };
+  function findEdgeNear(x, y, radius) {
+    const x0 = Math.max(1, x - radius | 0), y0 = Math.max(1, y - radius | 0);
+    const x1 = Math.min(W - 1, x + radius | 0), y1 = Math.min(H - 1, y + radius | 0);
+    if (x1 <= x0 || y1 <= y0) return null;
+    const w = x1 - x0, h = y1 - y0;
+    const img = ctx.getImageData(x0, y0, w, h);
+    const d = img.data;
+    let bestG = 0, bestX = x, bestY = y;
+    for (let yy = 1; yy < h - 1; yy++) {
+      for (let xx = 1; xx < w - 1; xx++) {
+        const i = (yy * w + xx) * 4;
+        const a = d[i] - d[i - 4], b = d[i + 4] - d[i];
+        const dy = d[i + w * 4] - d[i - w * 4];
+        const g = Math.abs(a) + Math.abs(b) + Math.abs(dy);
+        if (g > bestG) { bestG = g; bestX = x0 + xx; bestY = y0 + yy; }
+      }
+    }
+    return bestG > 30 ? { x: bestX, y: bestY } : null;
+  }
+
+  // ---- Quick select (paint over similar pixels under brush) ----
+  Tools.quickSelect = {
+    down(p) {
+      const r = magicWandAt(p.x, p.y, state.wandTolerance);
+      if (!r) return;
+      const path = new Path2D();
+      path.rect(r.bounds.x, r.bounds.y, r.bounds.w, r.bounds.h);
+      state.selection = { kind: 'wand', path, mask: r.mask, bounds: r.bounds };
+      composite();
+    },
+    move(p) {
+      // Grow current selection by another flood at p.
+      if (!state.selection || !state.selection.mask) return;
+      const r = magicWandAt(p.x, p.y, state.wandTolerance);
+      if (!r) return;
+      const a = state.selection.mask, b = r.mask;
+      for (let i = 0; i < a.length; i++) if (b[i]) a[i] = 1;
+      composite();
+    }
+  };
+
+  // ---- Magic eraser (one-click erase contiguous similar) ----
+  Tools.magicEraser = {
+    down(p) {
+      const r = magicWandAt(p.x, p.y, state.wandTolerance);
+      if (!r) return;
+      pushUndo();
+      const img = ctx.getImageData(0, 0, W, H);
+      for (let i = 0; i < r.mask.length; i++) {
+        if (r.mask[i]) img.data[i * 4 + 3] = 0;
+      }
+      ctx.putImageData(img, 0, 0);
+      composite();
+    }
+  };
+
+  // ---- Color range selection (global all-pixels-of-color) ----
+  Tools.colorRange = {
+    async down(p) {
+      const seed = ctx.getImageData(p.x, p.y, 1, 1).data;
+      const tol = state.wandTolerance;
+      const img = ctx.getImageData(0, 0, W, H);
+      const d = img.data;
+      const mask = new Uint8Array(W * H);
+      let mx = W, my = H, Mx = 0, My = 0;
+      for (let i = 0, j = 0; i < d.length; i += 4, j++) {
+        if (Math.abs(d[i]-seed[0]) <= tol && Math.abs(d[i+1]-seed[1]) <= tol && Math.abs(d[i+2]-seed[2]) <= tol) {
+          mask[j] = 1;
+          const x = j % W, y = (j / W) | 0;
+          if (x < mx) mx = x; if (x > Mx) Mx = x;
+          if (y < my) my = y; if (y > My) My = y;
+        }
+      }
+      const path = new Path2D();
+      path.rect(mx, my, Mx - mx + 1, My - my + 1);
+      state.selection = { kind: 'wand', path, mask, bounds: { x: mx, y: my, w: Mx-mx+1, h: My-my+1 } };
+      composite();
+    }
+  };
+
+  // ---- Selection feather / refine edge / save & load / from-alpha ----
+  Tools.selFeather = {
+    async down() {
+      const v = +prompt('Feather radius (px):', '4');
+      if (!v || !state.selection) return;
+      // For now: just expand bounds; pixel-perfect blur of mask is later.
+      state.selection.feather = v;
+      composite();
+    }
+  };
+  Tools.selRefine = {
+    async down() {
+      if (!state.selection) return;
+      const v = +prompt('Smooth radius (px):', '2');
+      if (!v) return;
+      state.selection.smooth = v;
+      composite();
+    }
+  };
+  state.savedSelections = {};
+  Tools.selSave = { down() { const n = prompt('Save selection as:'); if (n && state.selection) { state.savedSelections[n] = state.selection; alert('Saved.'); } } };
+  Tools.selLoad = {
+    down() {
+      const names = Object.keys(state.savedSelections);
+      if (!names.length) { alert('No saved selections.'); return; }
+      const n = prompt('Load which?\n' + names.join('\n'), names[0]);
+      if (n && state.savedSelections[n]) { state.selection = state.savedSelections[n]; composite(); }
+    }
+  };
+  Tools.selFromAlpha = {
+    down() {
+      const img = ctx.getImageData(0, 0, W, H);
+      const d = img.data;
+      const mask = new Uint8Array(W * H);
+      let mx = W, my = H, Mx = 0, My = 0, found = false;
+      for (let i = 0, j = 0; i < d.length; i += 4, j++) {
+        if (d[i + 3] > 32) {
+          mask[j] = 1; found = true;
+          const x = j % W, y = (j / W) | 0;
+          if (x < mx) mx = x; if (x > Mx) Mx = x;
+          if (y < my) my = y; if (y > My) My = y;
+        }
+      }
+      if (!found) return;
+      const path = new Path2D();
+      path.rect(mx, my, Mx - mx + 1, My - my + 1);
+      state.selection = { kind: 'wand', path, mask, bounds: { x: mx, y: my, w: Mx-mx+1, h: My-my+1 } };
+      composite();
+    }
+  };
+
+  // ---- Quick Mask mode (paint a selection as red overlay) ----
+  state.quickMask = null;
+  Tools.quickMask = {
+    down() {
+      if (state.quickMask) {
+        // Exit: convert mask to selection.
+        const m = state.quickMask;
+        const data = m.ctx.getImageData(0, 0, W, H).data;
+        const mask = new Uint8Array(W * H);
+        let mx = W, my = H, Mx = 0, My = 0, found = false;
+        for (let i = 0, j = 0; i < data.length; i += 4, j++) {
+          if (data[i + 3] > 32) {
+            mask[j] = 1; found = true;
+            const x = j % W, y = (j / W) | 0;
+            if (x < mx) mx = x; if (x > Mx) Mx = x;
+            if (y < my) my = y; if (y > My) My = y;
+          }
+        }
+        if (found) {
+          const path = new Path2D();
+          path.rect(mx, my, Mx - mx + 1, My - my + 1);
+          state.selection = { kind: 'wand', path, mask, bounds: { x: mx, y: my, w: Mx-mx+1, h: My-my+1 } };
+        }
+        state.quickMask = null;
+        composite();
+      } else {
+        // Enter: create overlay layer.
+        const off = window.document.createElement('canvas');
+        off.width = W; off.height = H;
+        state.quickMask = { canvas: off, ctx: off.getContext('2d') };
+        alert('Quick Mask: paint to define selection. Click QuickMask again to exit.');
+      }
+    }
+  };
+
   // ---- Init ----
   // Create the initial document FIRST so that any drawing during init has a
   // layer to write to. `setActiveDoc` rebinds the module-level `ctx`.
