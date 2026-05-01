@@ -810,7 +810,33 @@
       { id: 'adjMatchColor', label: 'MatchClr', icon: '🎨' },
       { id: 'colorHarmony', label: 'Harmony', icon: '☯' },
       { id: 'eyedropperSize', label: 'PickSz', icon: '🔬' },
-      { id: 'histogram', label: 'Histo', icon: '📈' }
+      { id: 'histogram', label: 'Histo', icon: '📈' },
+      // Phase 4: vector + typography
+      { id: 'penTool', label: 'Pen', icon: '✒️' },
+      { id: 'penCommit', label: 'PenStroke', icon: '〜' },
+      { id: 'penFill', label: 'PenFill', icon: '◆' },
+      { id: 'penClear', label: 'PenClear', icon: '✕' },
+      { id: 'directSelect', label: 'DirSelect', icon: '⤴' },
+      { id: 'liveRect', label: 'LiveRect', icon: '▢' },
+      { id: 'liveCornerRadius', label: 'CornerR', icon: '⌐' },
+      { id: 'convertAnchor', label: 'CnvAnch', icon: '↔' },
+      { id: 'savePath', label: 'SavePath', icon: '💾' },
+      { id: 'loadPath', label: 'LoadPath', icon: '📂' },
+      { id: 'path2Sel', label: 'P→Sel', icon: '⇒' },
+      { id: 'sel2Path', label: 'Sel→P', icon: '⇐' },
+      { id: 'vectorLayer', label: 'VecLyr', icon: '🅥' },
+      { id: 'bezierMirror', label: 'PenMirr', icon: '⇋' },
+      { id: 'editText', label: 'EditTxt', icon: '✏️' },
+      { id: 'fontPicker', label: 'Font', icon: 'Aa' },
+      { id: 'charPanel', label: 'CharPnl', icon: '🔤' },
+      { id: 'paragraphPanel', label: 'Para', icon: '¶' },
+      { id: 'textOnPath', label: 'OnPath', icon: '↪' },
+      { id: 'saveTypeStyle', label: 'SaveSty', icon: '💼' },
+      { id: 'loadTypeStyle', label: 'LoadSty', icon: '📁' },
+      { id: 'varFontWeight', label: 'VarFont', icon: 'A𝐀' },
+      { id: 'loadWebFont', label: 'WebFont', icon: '🌐' },
+      { id: 'textWarp', label: 'Warp', icon: '🌊' },
+      { id: 'glyphsPanel', label: 'Glyphs', icon: '☆' }
     ]
   };
 

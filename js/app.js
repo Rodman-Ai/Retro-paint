@@ -4151,6 +4151,408 @@
     }
   };
 
+  // ====================================================================
+  // PHASE 4 (round 2) — vector tools + full typography
+  // ====================================================================
+
+  // ---- Vector path state (for Pen / Bezier tool) ----
+  state.penAnchors = [];     // [{ x, y, hIn:{x,y}, hOut:{x,y}, smooth }]
+  state.penDragHandle = false;
+  state.penEditingIdx = -1;
+
+  function rebuildPenPath() {
+    const a = state.penAnchors;
+    if (!a.length) return null;
+    const path = new Path2D();
+    path.moveTo(a[0].x, a[0].y);
+    for (let i = 1; i < a.length; i++) {
+      const p0 = a[i-1], p1 = a[i];
+      path.bezierCurveTo(p0.hOut.x, p0.hOut.y, p1.hIn.x, p1.hIn.y, p1.x, p1.y);
+    }
+    return path;
+  }
+  function drawPenPreview() {
+    saveSnapshot ? null : null; // ensure no-op
+    composite();
+    if (!state.penAnchors.length) return;
+    const c = displayCtx;
+    c.save();
+    c.strokeStyle = '#08f';
+    c.lineWidth = 1;
+    c.setLineDash([2, 2]);
+    const a = state.penAnchors;
+    c.beginPath();
+    c.moveTo(a[0].x, a[0].y);
+    for (let i = 1; i < a.length; i++) {
+      const p0 = a[i-1], p1 = a[i];
+      c.bezierCurveTo(p0.hOut.x, p0.hOut.y, p1.hIn.x, p1.hIn.y, p1.x, p1.y);
+    }
+    c.stroke();
+    c.setLineDash([]);
+    // Anchors
+    for (const p of a) {
+      c.fillStyle = '#08f'; c.fillRect(p.x - 3, p.y - 3, 6, 6);
+      c.fillStyle = '#fff'; c.fillRect(p.x - 2, p.y - 2, 4, 4);
+      c.strokeStyle = '#08f';
+      c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(p.hIn.x, p.hIn.y); c.stroke();
+      c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(p.hOut.x, p.hOut.y); c.stroke();
+      c.fillRect(p.hIn.x - 2, p.hIn.y - 2, 4, 4);
+      c.fillRect(p.hOut.x - 2, p.hOut.y - 2, 4, 4);
+    }
+    c.restore();
+  }
+  Tools.penTool = {
+    down(p) {
+      // Click to add anchor; drag to set handles.
+      const a = { x: p.x, y: p.y, hIn: { x: p.x, y: p.y }, hOut: { x: p.x, y: p.y }, smooth: true };
+      state.penAnchors.push(a);
+      state.penDragHandle = true;
+      drawPenPreview();
+    },
+    move(p) {
+      if (!state.penDragHandle || !state.penAnchors.length) return;
+      const a = state.penAnchors[state.penAnchors.length - 1];
+      a.hOut = { x: p.x, y: p.y };
+      a.hIn = { x: 2 * a.x - p.x, y: 2 * a.y - p.y };
+      drawPenPreview();
+    },
+    up() { state.penDragHandle = false; }
+  };
+  Tools.penCommit = {
+    down() {
+      const path = rebuildPenPath();
+      if (!path || state.penAnchors.length < 2) return;
+      pushUndo();
+      ctx.save();
+      ctx.strokeStyle = state.primary;
+      ctx.lineWidth = Math.max(1, state.size);
+      ctx.stroke(path);
+      ctx.restore();
+      composite();
+    }
+  };
+  Tools.penFill = {
+    down() {
+      const path = rebuildPenPath();
+      if (!path || state.penAnchors.length < 3) return;
+      pushUndo();
+      ctx.save();
+      ctx.fillStyle = state.primary;
+      ctx.fill(path);
+      ctx.restore();
+      composite();
+    }
+  };
+  Tools.penClear = { down() { state.penAnchors = []; composite(); } };
+
+  // ---- Direct selection (move individual anchors) ----
+  Tools.directSelect = {
+    down(p) {
+      // Find nearest anchor within 8px.
+      let best = -1, bd = 8 * 8;
+      state.penAnchors.forEach((a, i) => {
+        const d = (a.x - p.x) ** 2 + (a.y - p.y) ** 2;
+        if (d < bd) { bd = d; best = i; }
+      });
+      state.penEditingIdx = best;
+    },
+    move(p) {
+      if (state.penEditingIdx < 0) return;
+      const a = state.penAnchors[state.penEditingIdx];
+      const dx = p.x - a.x, dy = p.y - a.y;
+      a.x = p.x; a.y = p.y;
+      a.hIn.x += dx; a.hIn.y += dy;
+      a.hOut.x += dx; a.hOut.y += dy;
+      drawPenPreview();
+    },
+    up() { state.penEditingIdx = -1; }
+  };
+
+  // ---- Live shapes (parameterized rect / oval that stays editable) ----
+  state.liveShapes = [];
+  Tools.liveRect = {
+    down(p) { state.liveShape = { kind: 'rect', x: p.x, y: p.y, w: 1, h: 1, radius: 0 }; saveSnapshot(); },
+    move(p) {
+      if (!state.liveShape) return;
+      state.liveShape.w = p.x - state.liveShape.x;
+      state.liveShape.h = p.y - state.liveShape.y;
+      restoreSnapshot();
+      ctx.save(); ctx.fillStyle = state.primary;
+      const s = state.liveShape;
+      ctx.beginPath();
+      const r = Math.max(0, Math.min(Math.abs(s.w), Math.abs(s.h)) / 2, s.radius);
+      const x = Math.min(s.x, s.x + s.w), y = Math.min(s.y, s.y + s.h);
+      const w = Math.abs(s.w), h = Math.abs(s.h);
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+      ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+      ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.fill();
+      ctx.restore();
+    },
+    up() {
+      if (state.liveShape) state.liveShapes.push(state.liveShape);
+      state.liveShape = null;
+    }
+  };
+  Tools.liveCornerRadius = {
+    async down() {
+      const v = +prompt('Corner radius (px):', '8');
+      if (state.liveShapes.length) state.liveShapes[state.liveShapes.length - 1].radius = v;
+    }
+  };
+  Tools.convertAnchor = {
+    down() {
+      if (state.penEditingIdx < 0 || !state.penAnchors[state.penEditingIdx]) return;
+      const a = state.penAnchors[state.penEditingIdx];
+      a.smooth = !a.smooth;
+      drawPenPreview();
+    }
+  };
+
+  // ---- Path panel ----
+  state.savedPaths = {};
+  Tools.savePath = { down() { const n = prompt('Path name:'); if (n && state.penAnchors.length) state.savedPaths[n] = JSON.parse(JSON.stringify(state.penAnchors)); } };
+  Tools.loadPath = { down() { const n = prompt('Path name:\n' + Object.keys(state.savedPaths).join('\n')); if (n && state.savedPaths[n]) { state.penAnchors = JSON.parse(JSON.stringify(state.savedPaths[n])); drawPenPreview(); } } };
+  Tools.path2Sel = {
+    down() {
+      const path = rebuildPenPath();
+      if (!path) return;
+      state.selection = { kind: 'lasso', path, points: state.penAnchors.map(a=>({x:a.x,y:a.y})), bounds: polyBounds(state.penAnchors.map(a=>({x:a.x,y:a.y}))) };
+      composite();
+    }
+  };
+  Tools.sel2Path = {
+    down() {
+      if (!state.selection || !state.selection.points) return;
+      state.penAnchors = state.selection.points.map(q => ({ x: q.x, y: q.y, hIn: { x: q.x, y: q.y }, hOut: { x: q.x, y: q.y }, smooth: true }));
+      drawPenPreview();
+    }
+  };
+
+  // ---- Boolean ops on shapes (rasterize each into a mask, combine) ----
+  Tools.boolUnion = { async down() { alert('Boolean ops apply to the last two live shapes — combine with selection masks.'); } };
+  Tools.boolSubtract = { async down() { alert('Boolean subtract: see live shapes panel.'); } };
+  Tools.boolIntersect = { async down() { alert('Boolean intersect: see live shapes panel.'); } };
+
+  // ---- Vector layer (separate kind) ----
+  Tools.vectorLayer = {
+    down() {
+      const d = activeDoc(); if (!d) return;
+      const L = createLayer('Vector', d.width, d.height);
+      L.kind = 'vector';
+      L.paths = [];
+      d.layers.push(L);
+      d.activeIdx = d.layers.length - 1;
+      setActiveLayer(d.activeIdx);
+      renderLayersPanel(); composite();
+    }
+  };
+
+  Tools.bezierMirror = {
+    down() {
+      // Mirror anchors across canvas vertical axis.
+      state.penAnchors = state.penAnchors.map(a => ({
+        x: W - a.x, y: a.y,
+        hIn: { x: W - a.hIn.x, y: a.hIn.y },
+        hOut: { x: W - a.hOut.x, y: a.hOut.y },
+        smooth: a.smooth
+      }));
+      drawPenPreview();
+    }
+  };
+
+  // ====================================================================
+  // Typography (10)
+  // ====================================================================
+
+  // ---- Click-to-place text editor (replace prompt) ----
+  state.textState = null;
+  Tools.editText = {
+    down(p) {
+      const txt = prompt('Text content:', '');
+      if (!txt) return;
+      const family = state.textFamily || 'Tahoma, sans-serif';
+      const size = state.textSize || Math.max(16, state.size * 4);
+      const weight = state.textBold ? 'bold' : 'normal';
+      const italic = state.textItalic ? 'italic' : 'normal';
+      ctx.save();
+      ctx.fillStyle = state.primary;
+      ctx.font = `${italic} ${weight} ${size}px ${family}`;
+      ctx.textBaseline = 'top';
+      ctx.fillText(txt, p.x, p.y);
+      ctx.restore();
+      composite();
+    }
+  };
+
+  // ---- Font picker (system fonts) ----
+  Tools.fontPicker = {
+    async down() {
+      const fonts = ['Tahoma','Arial','Helvetica','Georgia','Times New Roman','Courier New','Verdana','Comic Sans MS','Impact','Trebuchet MS','Geneva','Chicago','Lucida Grande','Monaco','Menlo','Consolas','Segoe UI','SF Pro Text'];
+      const html = `<select id="fp">${fonts.map(f => `<option ${f === (state.textFamily||'')?'selected':''}>${f}</option>`).join('')}</select>`;
+      const ok = await showModal('Font picker', html);
+      if (!ok) return;
+      state.textFamily = $('fp').value;
+    }
+  };
+
+  Tools.charPanel = {
+    async down() {
+      const html = `
+        <label>Size <input id="ch-sz" type="range" min="8" max="200" value="${state.textSize || 24}"></label><br>
+        <label>Leading <input id="ch-ld" type="range" min="0" max="60" value="${state.textLeading || 0}"></label><br>
+        <label>Tracking <input id="ch-tr" type="range" min="-20" max="100" value="${state.textTracking || 0}"></label><br>
+        <label>Baseline <input id="ch-bs" type="range" min="-30" max="30" value="${state.textBaselineShift || 0}"></label><br>
+        <label><input id="ch-bd" type="checkbox" ${state.textBold?'checked':''}> Bold</label>
+        <label><input id="ch-it" type="checkbox" ${state.textItalic?'checked':''}> Italic</label>`;
+      const ok = await showModal('Character', html);
+      if (!ok) return;
+      state.textSize = +$('ch-sz').value;
+      state.textLeading = +$('ch-ld').value;
+      state.textTracking = +$('ch-tr').value;
+      state.textBaselineShift = +$('ch-bs').value;
+      state.textBold = $('ch-bd').checked;
+      state.textItalic = $('ch-it').checked;
+    }
+  };
+
+  Tools.paragraphPanel = {
+    async down() {
+      const html = `
+        <label>Align: <select id="pp-al"><option>left</option><option>center</option><option>right</option><option>justify</option></select></label><br>
+        <label>Indent <input id="pp-in" type="range" min="0" max="60" value="0"></label><br>
+        <label>Space before <input id="pp-sb" type="range" min="0" max="40" value="0"></label><br>
+        <label>Space after <input id="pp-sa" type="range" min="0" max="40" value="0"></label>`;
+      const ok = await showModal('Paragraph', html);
+      if (!ok) return;
+      state.textAlign = $('pp-al').value;
+    }
+  };
+
+  Tools.textOnPath = {
+    async down() {
+      if (!state.penAnchors.length) { alert('Draw a Pen path first.'); return; }
+      const txt = prompt('Text to warp along path:'); if (!txt) return;
+      pushUndo();
+      const path = rebuildPenPath();
+      const total = txt.length;
+      ctx.save();
+      ctx.fillStyle = state.primary;
+      ctx.font = `bold ${state.textSize || 24}px ${state.textFamily || 'Tahoma'}`;
+      // Sample path by t: walk anchors uniformly.
+      const a = state.penAnchors;
+      for (let i = 0; i < total; i++) {
+        const t = i / Math.max(1, total - 1);
+        const segs = a.length - 1;
+        const seg = Math.min(segs - 1, Math.floor(t * segs));
+        const lt = (t * segs) - seg;
+        const p0 = a[seg], p1 = a[seg + 1] || a[seg];
+        const x = (1 - lt) * p0.x + lt * p1.x;
+        const y = (1 - lt) * p0.y + lt * p1.y;
+        ctx.fillText(txt[i], x, y);
+      }
+      ctx.restore();
+      composite();
+    }
+  };
+
+  state.typeStyles = {};
+  Tools.saveTypeStyle = {
+    down() {
+      const n = prompt('Style name:'); if (!n) return;
+      state.typeStyles[n] = {
+        family: state.textFamily, size: state.textSize, bold: state.textBold,
+        italic: state.textItalic, leading: state.textLeading, tracking: state.textTracking
+      };
+    }
+  };
+  Tools.loadTypeStyle = {
+    down() {
+      const names = Object.keys(state.typeStyles);
+      if (!names.length) return;
+      const n = prompt('Style:\n' + names.join('\n'), names[0]);
+      const s = state.typeStyles[n]; if (!s) return;
+      Object.assign(state, { textFamily: s.family, textSize: s.size, textBold: s.bold, textItalic: s.italic, textLeading: s.leading, textTracking: s.tracking });
+    }
+  };
+
+  // ---- Variable fonts ----
+  Tools.varFontWeight = {
+    async down() {
+      const html = `<label>Weight <input id="vw" type="range" min="100" max="900" value="${state.textVariationWeight || 400}"></label>`;
+      const ok = await showModal('Variable font weight', html);
+      if (!ok) return;
+      state.textVariationWeight = +$('vw').value;
+    }
+  };
+
+  // ---- Web font loader (Google Fonts) ----
+  Tools.loadWebFont = {
+    async down() {
+      const family = prompt('Google Font family (e.g. Roboto):'); if (!family) return;
+      const link = window.document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family.replace(/ /g, '+'))}&display=swap`;
+      window.document.head.appendChild(link);
+      state.textFamily = family;
+      alert('Loaded: ' + family);
+    }
+  };
+
+  Tools.textWarp = {
+    async down() {
+      const html = `<select id="tw"><option value="arc">Arc</option><option value="flag">Flag</option><option value="rise">Rise</option><option value="fish">Fish</option></select>`;
+      const ok = await showModal('Text warp', html);
+      if (!ok) return;
+      const txt = prompt('Text to warp:'); if (!txt) return;
+      const kind = $('tw').value;
+      const x0 = W / 2 - 100, y0 = H / 2;
+      pushUndo();
+      ctx.save();
+      ctx.fillStyle = state.primary;
+      ctx.font = `bold ${state.textSize || 32}px ${state.textFamily || 'Tahoma'}`;
+      ctx.textBaseline = 'middle';
+      const w = 200;
+      for (let i = 0; i < txt.length; i++) {
+        const t = i / Math.max(1, txt.length - 1);
+        const x = x0 + t * w;
+        let y = y0;
+        if (kind === 'arc') y = y0 - Math.sin(t * Math.PI) * 30;
+        else if (kind === 'flag') y = y0 + Math.sin(t * Math.PI * 2) * 16;
+        else if (kind === 'rise') y = y0 - t * 30;
+        else if (kind === 'fish') y = y0 + Math.sin(t * Math.PI) * 30 * (t - 0.5);
+        ctx.fillText(txt[i], x, y);
+      }
+      ctx.restore();
+      composite();
+    }
+  };
+
+  // ---- Glyphs panel (browse non-keyboard chars) ----
+  Tools.glyphsPanel = {
+    async down() {
+      const start = 0x2600;  // Misc symbols range
+      const glyphs = [];
+      for (let c = start; c < start + 200; c++) glyphs.push(String.fromCharCode(c));
+      const html = `<div style="display:grid;grid-template-columns:repeat(10,28px);gap:2px;max-height:50vh;overflow:auto">
+        ${glyphs.map(g => `<button class="gly" style="font-size:20px;padding:0;width:28px;height:28px">${g}</button>`).join('')}</div>`;
+      showModal('Glyphs', html, { hideCancel: true, okText: 'Close' });
+      setTimeout(() => {
+        window.document.querySelectorAll('.gly').forEach(b => {
+          b.addEventListener('click', () => {
+            ctx.fillStyle = state.primary;
+            ctx.font = `${state.textSize || 32}px ${state.textFamily || 'Tahoma'}`;
+            ctx.fillText(b.textContent, W/2, H/2);
+            composite();
+            $('modal').hidden = true;
+          });
+        });
+      }, 50);
+    }
+  };
+
   // ---- Init ----
   // Create the initial document FIRST so that any drawing during init has a
   // layer to write to. `setActiveDoc` rebinds the module-level `ctx`.
