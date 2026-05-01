@@ -795,6 +795,27 @@ body.mode-tuxpaint .splash-content { color: #fff200; text-shadow: 4px 4px 0 #2a1
 body.mode-tuxpaint button.tool-btn,
 body.mode-tuxpaint button.tool-btn { width: 56px; height: 56px; font-size: 28px; border-radius: 12px; }
 
+/* Tux mascot bubble */
+.tux-mascot {
+  position: fixed; bottom: 8px; left: 8px;
+  display: flex; align-items: flex-end; gap: 6px;
+  z-index: 70; pointer-events: none;
+  font-family: "Comic Sans MS", sans-serif;
+}
+.tux-mascot[hidden] { display: none; }
+.tux-bubble {
+  background: #fff; color: #2a1a4a; padding: 8px 12px;
+  border: 3px solid #2a1a4a; border-radius: 12px;
+  max-width: 200px; font-size: 12px; font-weight: bold;
+  position: relative;
+}
+.tux-bubble::after {
+  content: ''; position: absolute; bottom: -10px; left: 18px;
+  border-width: 10px 10px 0 0; border-style: solid;
+  border-color: #2a1a4a transparent transparent transparent;
+}
+.tux-icon { font-size: 48px; }
+
 /* =========================================================
    THEME 6 — Paint Shop Pro (90s prosumer, gray-pro)
    ========================================================= */

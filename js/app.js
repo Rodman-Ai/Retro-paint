@@ -579,6 +579,373 @@
     }
   };
 
+  // ---- Tux Paint Magic effects ----
+  // Each magic[name] is a (ctx, x, y, lx, ly) function applied per stroke segment.
+  const magicEffects = {
+    rainbow(c, x, y, lx, ly) {
+      const colors = ['#ed1c24','#ff7f27','#fff200','#22b14c','#00a2e8','#3f48cc','#a349a4'];
+      const w = Math.max(2, state.size);
+      for (let i = 0; i < colors.length; i++) {
+        const off = (i - 3) * (w * 0.7);
+        c.strokeStyle = colors[i]; c.lineWidth = w * 0.9; c.lineCap = 'round';
+        c.beginPath(); c.moveTo(lx, ly + off); c.lineTo(x, y + off); c.stroke();
+      }
+    },
+    blur(c, x, y) {
+      const r = state.size * 4;
+      const x0 = Math.max(0, x - r | 0), y0 = Math.max(0, y - r | 0);
+      const w = Math.min(W - x0, r * 2 | 0), h = Math.min(H - y0, r * 2 | 0);
+      if (w <= 0 || h <= 0) return;
+      const tmp = window.document.createElement('canvas');
+      tmp.width = Math.max(1, w >> 1); tmp.height = Math.max(1, h >> 1);
+      tmp.getContext('2d').drawImage(activeLayer().canvas, x0, y0, w, h, 0, 0, tmp.width, tmp.height);
+      c.imageSmoothingEnabled = true;
+      c.drawImage(tmp, 0, 0, tmp.width, tmp.height, x0, y0, w, h);
+    },
+    sparkles(c, x, y) {
+      const colors = ['#ffffff','#fff200','#fff5b3','#ffd700'];
+      for (let i = 0; i < 12; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const d = Math.random() * (state.size * 4);
+        c.fillStyle = colors[(Math.random() * colors.length) | 0];
+        const sx = x + Math.cos(a) * d, sy = y + Math.sin(a) * d, s = 1 + Math.random() * 3;
+        c.fillRect(sx - s/2, sy - s/2, s, s);
+      }
+    },
+    foam(c, x, y) {
+      for (let i = 0; i < 10; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const d = Math.random() * (state.size * 3);
+        c.globalAlpha = 0.4;
+        c.fillStyle = state.primary;
+        c.beginPath();
+        c.arc(x + Math.cos(a)*d, y + Math.sin(a)*d, 2 + Math.random()*4, 0, Math.PI*2);
+        c.fill();
+      }
+      c.globalAlpha = 1;
+    },
+    smudgeMagic(c, x, y, lx, ly) {
+      const r = Math.max(2, state.size);
+      try {
+        const data = ctx.getImageData(lx - r, ly - r, r*2, r*2);
+        const tmp = window.document.createElement('canvas');
+        tmp.width = data.width; tmp.height = data.height;
+        tmp.getContext('2d').putImageData(data, 0, 0);
+        c.globalAlpha = 0.5;
+        c.drawImage(tmp, x - r, y - r);
+        c.globalAlpha = 1;
+      } catch (e) {}
+    },
+    tint(c, x, y) {
+      const r = state.size * 3;
+      c.save();
+      c.globalCompositeOperation = 'multiply';
+      c.fillStyle = state.primary;
+      c.beginPath(); c.arc(x, y, r, 0, Math.PI*2); c.fill();
+      c.restore();
+    },
+    negative(c, x, y) {
+      const r = state.size * 3;
+      const x0 = Math.max(0, x - r | 0), y0 = Math.max(0, y - r | 0);
+      const w = Math.min(W - x0, r * 2 | 0), h = Math.min(H - y0, r * 2 | 0);
+      if (w <= 0 || h <= 0) return;
+      const img = ctx.getImageData(x0, y0, w, h);
+      const d = img.data;
+      for (let i = 0; i < d.length; i += 4) { d[i] = 255 - d[i]; d[i+1] = 255 - d[i+1]; d[i+2] = 255 - d[i+2]; }
+      ctx.putImageData(img, x0, y0);
+    },
+    mosaic(c, x, y) {
+      const cell = 8; const r = state.size * 4;
+      const x0 = Math.max(0, x - r | 0), y0 = Math.max(0, y - r | 0);
+      const w = Math.min(W - x0, r * 2 | 0), h = Math.min(H - y0, r * 2 | 0);
+      if (w <= 0 || h <= 0) return;
+      const img = ctx.getImageData(x0, y0, w, h);
+      const d = img.data;
+      for (let yy = 0; yy < h; yy += cell) {
+        for (let xx = 0; xx < w; xx += cell) {
+          const i0 = (yy * w + xx) * 4;
+          const r0 = d[i0], g0 = d[i0+1], b0 = d[i0+2];
+          for (let dy = 0; dy < cell && yy+dy < h; dy++) {
+            for (let dx = 0; dx < cell && xx+dx < w; dx++) {
+              const o = ((yy+dy) * w + (xx+dx)) * 4;
+              d[o] = r0; d[o+1] = g0; d[o+2] = b0;
+            }
+          }
+        }
+      }
+      ctx.putImageData(img, x0, y0);
+    },
+    drip(c, x, y) {
+      c.fillStyle = state.primary;
+      const w = state.size;
+      c.fillRect(x - w/2, y, w, 100);
+    },
+    fisheye(c, x, y) {
+      const r = state.size * 5;
+      const x0 = Math.max(0, x - r | 0), y0 = Math.max(0, y - r | 0);
+      const w = Math.min(W - x0, r * 2 | 0), h = Math.min(H - y0, r * 2 | 0);
+      if (w <= 0 || h <= 0) return;
+      const src = ctx.getImageData(x0, y0, w, h);
+      const out = ctx.createImageData(w, h);
+      const cx = w / 2, cy = h / 2;
+      for (let yy = 0; yy < h; yy++) {
+        for (let xx = 0; xx < w; xx++) {
+          const dx = xx - cx, dy = yy - cy;
+          const d = Math.hypot(dx, dy);
+          let sx = xx, sy = yy;
+          if (d < r) {
+            const f = d / r;
+            sx = cx + dx * (1 - f * 0.4);
+            sy = cy + dy * (1 - f * 0.4);
+          }
+          const si = ((sy | 0) * w + (sx | 0)) * 4;
+          const oi = (yy * w + xx) * 4;
+          out.data[oi]   = src.data[si];
+          out.data[oi+1] = src.data[si+1];
+          out.data[oi+2] = src.data[si+2];
+          out.data[oi+3] = 255;
+        }
+      }
+      ctx.putImageData(out, x0, y0);
+    },
+    cartoon(c, x, y) {
+      // Local edge detect + posterize within a box.
+      const r = state.size * 4;
+      const x0 = Math.max(0, x - r | 0), y0 = Math.max(0, y - r | 0);
+      const w = Math.min(W - x0, r * 2 | 0), h = Math.min(H - y0, r * 2 | 0);
+      if (w < 3 || h < 3) return;
+      const src = ctx.getImageData(x0, y0, w, h);
+      const d = src.data;
+      // posterize
+      for (let i = 0; i < d.length; i += 4) {
+        d[i] = (d[i] / 64 | 0) * 64;
+        d[i+1] = (d[i+1] / 64 | 0) * 64;
+        d[i+2] = (d[i+2] / 64 | 0) * 64;
+      }
+      ctx.putImageData(src, x0, y0);
+    },
+    emboss(c, x, y) {
+      const r = state.size * 4;
+      const x0 = Math.max(0, x - r | 0), y0 = Math.max(0, y - r | 0);
+      const w = Math.min(W - x0, r * 2 | 0), h = Math.min(H - y0, r * 2 | 0);
+      if (w < 3 || h < 3) return;
+      const src = ctx.getImageData(x0, y0, w, h);
+      const out = ctx.createImageData(w, h);
+      const sd = src.data, od = out.data;
+      for (let yy = 1; yy < h - 1; yy++) {
+        for (let xx = 1; xx < w - 1; xx++) {
+          const a = (yy * w + xx) * 4;
+          const b = ((yy - 1) * w + (xx - 1)) * 4;
+          const v = 128 + (sd[a] - sd[b]);
+          od[a] = od[a+1] = od[a+2] = Math.max(0, Math.min(255, v));
+          od[a+3] = 255;
+        }
+      }
+      ctx.putImageData(out, x0, y0);
+    },
+    bricks(c, x, y) {
+      const bw = 18, bh = 8;
+      c.save();
+      c.fillStyle = '#a44';
+      c.fillRect(x - bw, y - bh/2, bw, bh);
+      c.strokeStyle = '#fff';
+      c.strokeRect(x - bw + 0.5, y - bh/2 + 0.5, bw, bh);
+      c.restore();
+    },
+    snow(c) {
+      // Whole-canvas effect: random white dots.
+      pushUndo();
+      c.fillStyle = '#ffffff';
+      for (let i = 0; i < 600; i++) {
+        const sx = Math.random() * W, sy = Math.random() * H, r = 1 + Math.random() * 3;
+        c.beginPath(); c.arc(sx, sy, r, 0, Math.PI*2); c.fill();
+      }
+    },
+    tornado(c, x, y) {
+      const r = state.size * 5;
+      const x0 = Math.max(0, x - r | 0), y0 = Math.max(0, y - r | 0);
+      const w = Math.min(W - x0, r * 2 | 0), h = Math.min(H - y0, r * 2 | 0);
+      if (w < 3 || h < 3) return;
+      const src = ctx.getImageData(x0, y0, w, h);
+      const out = ctx.createImageData(w, h);
+      const cx = w/2, cy = h/2;
+      for (let yy = 0; yy < h; yy++) {
+        for (let xx = 0; xx < w; xx++) {
+          const dx = xx - cx, dy = yy - cy;
+          const d = Math.hypot(dx, dy);
+          const ang = Math.atan2(dy, dx) + (1 - Math.min(d, r) / r) * Math.PI / 3;
+          const sx = (cx + Math.cos(ang) * d) | 0;
+          const sy = (cy + Math.sin(ang) * d) | 0;
+          const si = (Math.max(0, Math.min(h-1, sy)) * w + Math.max(0, Math.min(w-1, sx))) * 4;
+          const oi = (yy * w + xx) * 4;
+          out.data[oi] = src.data[si];
+          out.data[oi+1] = src.data[si+1];
+          out.data[oi+2] = src.data[si+2];
+          out.data[oi+3] = 255;
+        }
+      }
+      ctx.putImageData(out, x0, y0);
+    },
+    calligraphy(c, x, y, lx, ly) {
+      const w = state.size * 1.5;
+      c.save();
+      c.strokeStyle = state.primary;
+      c.lineWidth = w;
+      c.lineCap = 'butt';
+      c.beginPath();
+      c.moveTo(lx + w * 0.7, ly - w * 0.7);
+      c.lineTo(x + w * 0.7, y - w * 0.7);
+      c.stroke();
+      c.beginPath();
+      c.moveTo(lx, ly);
+      c.lineTo(x, y);
+      c.stroke();
+      c.restore();
+    }
+  };
+  Tools.magic = {
+    down(p) {
+      const name = state.tool.split(':')[1];
+      const fn = magicEffects[name]; if (!fn) return;
+      fn(ctx, p.x, p.y, p.x, p.y);
+      tuxSay(name);
+    },
+    move(p) {
+      const name = state.tool.split(':')[1];
+      const fn = magicEffects[name]; if (!fn) return;
+      fn(ctx, p.x, p.y, state.lastX, state.lastY);
+    }
+  };
+
+  // ---- Tux mascot tip bubble ----
+  const TUX_TIPS = {
+    pencil: 'Drag to draw. Pick a color first!',
+    brush: 'A nice fat brush. Try changing the size!',
+    eraser: 'Whoops? Drag this to erase.',
+    fill: 'Click an area to fill it with color.',
+    spray: 'Pssht! Spray paint.',
+    line: 'Click and drag to make a straight line.',
+    rect: 'Drag for a rectangle. Hold Shift for a square!',
+    text: 'Click on the canvas, type some words.',
+    'wacky:rainbow': 'Magic rainbow! Drag for a beautiful stripe.',
+    'magic:rainbow': 'Magic rainbow! Drag for a beautiful stripe.',
+    'magic:blur': 'Smudge it gently to blur things out.',
+    'magic:sparkles': 'Pew pew! Shiny sparkles.',
+    'magic:foam': 'Fluffy bubbles!',
+    'magic:tint': 'Color a part of your picture.',
+    'magic:negative': 'Flip the colors upside-down!',
+    'magic:mosaic': 'Make it look like a tile picture.',
+    'magic:drip': 'Drippy paint runs down…',
+    'magic:fisheye': 'Boing! Bulgy lens.',
+    'magic:cartoon': 'Make it look like a comic.',
+    'magic:emboss': 'Carve into the picture.',
+    'magic:bricks': 'Build a brick wall, brick by brick.',
+    'magic:snow': 'Let it snow on your picture!',
+    'magic:tornado': 'Whirlpool!',
+    'magic:calligraphy': 'Old-fashioned ink writing.'
+  };
+  function tuxSay(toolName) {
+    if (state.mode !== 'tuxpaint') return;
+    const bubble = $('tux-bubble');
+    if (!bubble) return;
+    const key = toolName && toolName.startsWith('magic:') ? toolName : (toolName ? 'magic:' + toolName : state.tool);
+    bubble.textContent = TUX_TIPS[key] || TUX_TIPS[state.tool] || 'You can do it!';
+  }
+
+  // ---- Tux Paint save slots (LocalStorage thumbnails 1..9) ----
+  function tpSlotKey(n) { return 'retropaint:slot:' + n; }
+  async function openTuxSlots(mode) {
+    const slots = [];
+    for (let i = 1; i <= 9; i++) slots.push({ n: i, data: localStorage.getItem(tpSlotKey(i)) });
+    const html = `
+      <div>${mode === 'save' ? 'Save into which slot?' : 'Open which picture?'}</div>
+      <div style="display:grid;grid-template-columns:repeat(3,90px);gap:8px;margin-top:8px">
+        ${slots.map(s => `
+          <button data-slot="${s.n}" class="tp-slot" style="width:90px;height:80px;background:#fff;border:3px solid #2a1a4a;padding:0;cursor:pointer">
+            ${s.data ? `<img src="${s.data}" style="max-width:100%;max-height:60px"><div>Slot ${s.n}</div>`
+                     : `<div style="line-height:74px">Slot ${s.n}<br>(empty)</div>`}
+          </button>`).join('')}
+      </div>`;
+    showModal(mode === 'save' ? 'Save picture' : 'Open picture', html, { hideCancel: false }).then(() => {});
+    setTimeout(() => {
+      window.document.querySelectorAll('.tp-slot').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const n = +btn.dataset.slot;
+          if (mode === 'save') {
+            try { localStorage.setItem(tpSlotKey(n), canvas.toDataURL('image/png')); } catch (e) {}
+            $('modal').hidden = true;
+          } else {
+            const data = localStorage.getItem(tpSlotKey(n));
+            if (!data) return;
+            const img = new Image();
+            img.onload = () => {
+              pushUndo();
+              clearCanvas('#ffffff');
+              ctx.drawImage(img, 0, 0);
+              composite();
+              $('modal').hidden = true;
+            };
+            img.src = data;
+          }
+        });
+      });
+    }, 50);
+  }
+
+  // ---- Tux Paint slideshow ----
+  function openSlideshow() {
+    const datas = [];
+    for (let i = 1; i <= 9; i++) {
+      const d = localStorage.getItem(tpSlotKey(i));
+      if (d) datas.push(d);
+    }
+    if (!datas.length) { alert('No saved pictures yet — use Save Slot first.'); return; }
+    let i = 0;
+    const ov = window.document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:#000;z-index:200;display:flex;align-items:center;justify-content:center;cursor:pointer';
+    const im = new Image();
+    im.style.cssText = 'max-width:90%;max-height:90%;image-rendering:pixelated';
+    im.src = datas[0];
+    ov.appendChild(im);
+    window.document.body.appendChild(ov);
+    const t = setInterval(() => { i = (i + 1) % datas.length; im.src = datas[i]; }, 1500);
+    ov.addEventListener('click', () => { clearInterval(t); ov.remove(); });
+  }
+
+  // ---- Tux Paint shapes & letter stamps (Phase 4 tools) ----
+  Tools.tpShape = {
+    down(p) { saveSnapshot(); state.startX = p.x; state.startY = p.y; },
+    move(p) {
+      restoreSnapshot();
+      ctx.fillStyle = state.primary;
+      ctx.beginPath();
+      const cx = (state.startX + p.x) / 2, cy = (state.startY + p.y) / 2;
+      const rx = Math.abs(p.x - state.startX) / 2, ry = Math.abs(p.y - state.startY) / 2;
+      const sides = state.shapeSides || 5;
+      for (let i = 0; i <= sides; i++) {
+        const ang = (i / sides) * Math.PI * 2 - Math.PI / 2;
+        const x = cx + Math.cos(ang) * rx, y = cy + Math.sin(ang) * ry;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.fill();
+    }
+  };
+  Tools.tpLetter = {
+    down(p) {
+      const ch = prompt('Letter or word?');
+      if (!ch) return;
+      ctx.fillStyle = state.primary;
+      const sz = Math.max(20, state.size * 6);
+      ctx.font = `bold ${sz}px "Comic Sans MS","Marker Felt",sans-serif`;
+      ctx.textBaseline = 'top';
+      ctx.fillText(ch, p.x, p.y);
+      Sounds.tpType && Sounds.tpType();
+    }
+  };
+  Tools.tpSaveSlot = { down() { openTuxSlots('save'); } };
+  Tools.tpOpenSlot = { down() { openTuxSlots('open'); } };
+  Tools.tpSlideshow = { down() { openSlideshow(); } };
+
   // ---- MacPaint pattern fill bucket: floods then paints with active pattern ----
   function patternFloodFill(x, y) {
     if (x < 0 || y < 0 || x >= W || y >= H) return;
@@ -849,6 +1216,13 @@
     }
   };
 
+  // Tux Paint per-stamp sound overrides — animals get their own calls.
+  const TUX_STAMP_SOUNDS = {
+    cat: 'tpMeow', fish: 'kpBubble', bird: 'tpQuack', butterfly: 'kpSparkle',
+    rocket: 'kpWhoosh', ufo: 'kpLaser', tree: 'tpYippee', sun: 'tpYippee',
+    house: 'kpHonk', robot: 'kpLaser', smiley: 'tpYippee', cupcake: 'kpDing',
+    gift: 'kpDing', balloon: 'kpBoing'
+  };
   function dropStamp(p) {
     const set = state.activeStampSet || (state.mode === 'kidpix' ? 'kidpix' : 'mariopaint');
     const stamps = PaintModes.stamps[set];
@@ -857,7 +1231,9 @@
     if (!s) return;
     const scale = Math.max(2, Math.round(state.size * 0.8) + 2);
     PaintModes.drawStamp(ctx, s, p.x, p.y, scale);
-    const sfxName = (STAMP_SOUNDS[set] || {})[state.activeStamp];
+    let sfxName;
+    if (state.mode === 'tuxpaint') sfxName = TUX_STAMP_SOUNDS[state.activeStamp];
+    if (!sfxName) sfxName = (STAMP_SOUNDS[set] || {})[state.activeStamp];
     if (sfxName && typeof Sounds[sfxName] === 'function') {
       Sounds[sfxName]();
     } else {
@@ -1166,6 +1542,8 @@
       psp: 'Paint Shop Pro'
     };
     $('status-mode').textContent = MODE_LABELS[mode] || mode;
+    const mascot = $('tux-mascot');
+    if (mascot) mascot.hidden = mode !== 'tuxpaint';
   }
   const VALID_MODES = ['mspaint','mariopaint','kidpix','macpaint','tuxpaint','psp'];
 

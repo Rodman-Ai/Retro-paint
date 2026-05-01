@@ -595,7 +595,7 @@
       { id: 'gTrace', label: 'Trace', icon: '✎' },
       { id: 'gThreshold', label: '1-Bit', icon: '◑' }
     ],
-    // Tux Paint — Phase 1 minimal set; Phase 4 adds magic effects, categorized stamps, mascot.
+    // Tux Paint — full set with magic effects, shapes, letters, save slots.
     tuxpaint: [
       { id: 'pencil', label: 'Paint', icon: '✏️', shortcut: 'p' },
       { id: 'brush', label: 'Brush', icon: '🖌️', shortcut: 'b' },
@@ -603,10 +603,44 @@
       { id: 'fill', label: 'Fill', icon: '🪣', shortcut: 'f' },
       { id: 'spray', label: 'Spray', icon: '💨', shortcut: 's' },
       { id: 'line', label: 'Lines', icon: '╱', shortcut: 'l' },
-      { id: 'rect', label: 'Shapes', icon: '▭', shortcut: 'r' },
-      { id: 'wacky:rainbow', label: 'Magic', icon: '🌈', kind: 'wacky', wacky: 'rainbow' },
+      { id: 'tpShape', label: 'Shapes', icon: '⬟', shortcut: 'r' },
       { id: 'text', label: 'Text', icon: 'T', shortcut: 't' },
-      { id: 'stamp:smile', label: 'Stamp', icon: '😊', kind: 'stamp', stamp: 'smile' }
+      { id: 'tpLetter', label: 'Letters', icon: 'Aa' },
+      // Magic effects
+      { id: 'magic:rainbow',     label: 'Rainbow',  icon: '🌈' },
+      { id: 'magic:blur',        label: 'Blur',     icon: '🌫️' },
+      { id: 'magic:sparkles',    label: 'Sparkles', icon: '✨' },
+      { id: 'magic:foam',        label: 'Foam',     icon: '🫧' },
+      { id: 'magic:smudgeMagic', label: 'Smudge',   icon: '👆' },
+      { id: 'magic:tint',        label: 'Tint',     icon: '🎨' },
+      { id: 'magic:negative',    label: 'Negative', icon: '◐' },
+      { id: 'magic:mosaic',      label: 'Mosaic',   icon: '🟦' },
+      { id: 'magic:drip',        label: 'Drip',     icon: '💧' },
+      { id: 'magic:fisheye',     label: 'Fisheye',  icon: '🐟' },
+      { id: 'magic:cartoon',     label: 'Cartoon',  icon: '😀' },
+      { id: 'magic:emboss',      label: 'Emboss',   icon: '🔘' },
+      { id: 'magic:bricks',      label: 'Bricks',   icon: '🧱' },
+      { id: 'magic:snow',        label: 'Snow',     icon: '❄️' },
+      { id: 'magic:tornado',     label: 'Tornado',  icon: '🌪️' },
+      { id: 'magic:calligraphy', label: 'Quill',    icon: '🖋️' },
+      // Animal stamps (with sounds wired up via STAMP_SOUNDS)
+      { id: 'stamp:cat',     label: 'Cat',     icon: '🐱', kind: 'stamp', stamp: 'cat',     stampSet: 'kidpix' },
+      { id: 'stamp:fish',    label: 'Fish',    icon: '🐠', kind: 'stamp', stamp: 'fish',    stampSet: 'kidpix' },
+      { id: 'stamp:bird',    label: 'Bird',    icon: '🐦', kind: 'stamp', stamp: 'bird',    stampSet: 'kidpix' },
+      { id: 'stamp:butterfly', label: 'Butterfly', icon: '🦋', kind: 'stamp', stamp: 'butterfly', stampSet: 'kidpix' },
+      { id: 'stamp:rocket',  label: 'Rocket',  icon: '🚀', kind: 'stamp', stamp: 'rocket',  stampSet: 'kidpix' },
+      { id: 'stamp:ufo',     label: 'UFO',     icon: '🛸', kind: 'stamp', stamp: 'ufo',     stampSet: 'kidpix' },
+      { id: 'stamp:tree',    label: 'Tree',    icon: '🌳', kind: 'stamp', stamp: 'tree',    stampSet: 'kidpix' },
+      { id: 'stamp:sun',     label: 'Sun',     icon: '☀️', kind: 'stamp', stamp: 'sun',     stampSet: 'kidpix' },
+      { id: 'stamp:house',   label: 'House',   icon: '🏠', kind: 'stamp', stamp: 'house',   stampSet: 'kidpix' },
+      { id: 'stamp:robot',   label: 'Robot',   icon: '🤖', kind: 'stamp', stamp: 'robot',   stampSet: 'kidpix' },
+      { id: 'stamp:smiley',  label: 'Smiley',  icon: '🙂', kind: 'stamp', stamp: 'smiley',  stampSet: 'kidpix' },
+      { id: 'stamp:cupcake', label: 'Cupcake', icon: '🧁', kind: 'stamp', stamp: 'cupcake', stampSet: 'kidpix' },
+      { id: 'stamp:gift',    label: 'Gift',    icon: '🎁', kind: 'stamp', stamp: 'gift',    stampSet: 'kidpix' },
+      { id: 'stamp:balloon', label: 'Balloon', icon: '🎈', kind: 'stamp', stamp: 'balloon', stampSet: 'kidpix' },
+      { id: 'tpSaveSlot', label: 'SaveSlot', icon: '💾' },
+      { id: 'tpOpenSlot', label: 'OpenSlot', icon: '📂' },
+      { id: 'tpSlideshow', label: 'Show', icon: '🎞️' }
     ],
     // Paint Shop Pro — Phase 1 pro-toolbox; Phase 5 adds layers UI, dialogs, clone, tabs.
     psp: [

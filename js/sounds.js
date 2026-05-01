@@ -228,6 +228,44 @@
       if (!this.enabled) return;
       tone(1760, 0.18, 'triangle', 0.12);
       setTimeout(() => tone(2349, 0.18, 'triangle', 0.1), 60);
+    },
+
+    // ---- Tux Paint sounds ----
+    tpMeow() {
+      if (!this.enabled) return;
+      sweep(800, 1200, 0.18, 'sine', 0.16);
+      setTimeout(() => sweep(1200, 600, 0.2, 'sine', 0.14), 120);
+    },
+    tpBark() {
+      if (!this.enabled) return;
+      tone(220, 0.06, 'sawtooth', 0.22);
+      setTimeout(() => tone(180, 0.08, 'sawtooth', 0.2), 80);
+    },
+    tpQuack() {
+      if (!this.enabled) return;
+      sweep(900, 350, 0.15, 'sawtooth', 0.18);
+    },
+    tpMoo() {
+      if (!this.enabled) return;
+      sweep(180, 110, 0.4, 'sine', 0.22);
+    },
+    tpType() {
+      if (!this.enabled) return;
+      tone(1800 + Math.random() * 400, 0.02, 'square', 0.1);
+    },
+    tpBoom() {
+      if (!this.enabled) return;
+      noiseBurst(0.3, 0.22, 1500);
+      sweep(400, 80, 0.3, 'sawtooth', 0.18);
+    },
+    tpYippee() {
+      if (!this.enabled) return;
+      [523, 659, 784, 1046].forEach((f, i) =>
+        setTimeout(() => tone(f, 0.08, 'triangle', 0.14), i * 40));
+    },
+    tpWhoa() {
+      if (!this.enabled) return;
+      sweep(440, 220, 0.3, 'sine', 0.18);
     }
   };
 
