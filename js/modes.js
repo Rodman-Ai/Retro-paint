@@ -783,7 +783,34 @@
       { id: 'selSave', label: 'SaveSel', icon: '🔖' },
       { id: 'selLoad', label: 'LoadSel', icon: '📑' },
       { id: 'selFromAlpha', label: 'FromAlpha', icon: '⬛' },
-      { id: 'quickMask', label: 'QuickMsk', icon: '🟥' }
+      { id: 'quickMask', label: 'QuickMsk', icon: '🟥' },
+      // Phase 3: layer upgrades + non-destructive adjustments
+      { id: 'layerGroup', label: 'Group', icon: '📁' },
+      { id: 'addMask', label: 'Add-Msk', icon: '🎭' },
+      { id: 'delMask', label: 'Del-Msk', icon: '✖' },
+      { id: 'clipBelow', label: 'Clip', icon: '✂' },
+      { id: 'addAdjLevels', label: 'AdjLvl', icon: '📊' },
+      { id: 'addAdjHSL', label: 'AdjHSL', icon: '🎨' },
+      { id: 'addAdjThresh', label: 'AdjThr', icon: '◑' },
+      { id: 'addSmartFilter', label: 'SmartFx', icon: '✨' },
+      { id: 'lockLayer', label: 'Lock', icon: '🔒' },
+      { id: 'lockAlpha', label: 'LockA', icon: '🔐' },
+      { id: 'lockPos', label: 'LockP', icon: '📍' },
+      { id: 'layerSearch', label: 'L-Find', icon: '🔍' },
+      { id: 'layerStyles', label: 'Styles', icon: '✦' },
+      { id: 'smartObject', label: 'Smart', icon: '🧠' },
+      { id: 'saveComp', label: 'SaveCmp', icon: '🎬' },
+      { id: 'loadComp', label: 'LoadCmp', icon: '🎞' },
+      { id: 'adjCurves', label: 'Curves', icon: '〰' },
+      { id: 'adjGradMap', label: 'GradMap', icon: '🌈' },
+      { id: 'adjChannelMixer', label: 'ChnMix', icon: '🎛️' },
+      { id: 'adjVibrance', label: 'Vibrance', icon: '🌟' },
+      { id: 'adjSelective', label: 'Selectv', icon: '🎯' },
+      { id: 'adjPhotoFilter', label: 'PhotoFil', icon: '📸' },
+      { id: 'adjMatchColor', label: 'MatchClr', icon: '🎨' },
+      { id: 'colorHarmony', label: 'Harmony', icon: '☯' },
+      { id: 'eyedropperSize', label: 'PickSz', icon: '🔬' },
+      { id: 'histogram', label: 'Histo', icon: '📈' }
     ]
   };
 

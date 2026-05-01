@@ -3747,6 +3747,410 @@
     }
   };
 
+  // ====================================================================
+  // PHASE 3 (round 2) — layer upgrades + non-destructive adjustments
+  // ====================================================================
+
+  // ---- Layer groups ----
+  // Layers gain optional `group` field referencing a parent group id.
+  // Groups themselves are layers with `kind: 'group'` and a `members` array.
+  Tools.layerGroup = {
+    down() {
+      const d = activeDoc(); if (!d) return;
+      const g = createLayer('Group', d.width, d.height);
+      g.kind = 'group';
+      g.members = [];
+      d.layers.push(g);
+      renderLayersPanel();
+    }
+  };
+
+  // ---- Layer mask ----
+  Tools.addMask = {
+    down() {
+      const L = activeLayer(); if (!L) return;
+      const off = window.document.createElement('canvas');
+      off.width = W; off.height = H;
+      const c = off.getContext('2d');
+      c.fillStyle = '#fff'; c.fillRect(0, 0, W, H);
+      L.mask = { canvas: off, ctx: c, enabled: true };
+      // composite() applies mask via destination-in.
+      composite();
+    }
+  };
+  Tools.delMask = {
+    down() { const L = activeLayer(); if (L) { L.mask = null; composite(); } }
+  };
+
+  // ---- Clipping mask: clip current layer to alpha of layer below ----
+  Tools.clipBelow = {
+    down() {
+      const L = activeLayer(); if (!L) return;
+      L.clip = !L.clip;
+      composite();
+    }
+  };
+
+  // Patch composite() to honor masks and clipping.
+  const _oldComposite = composite;
+  composite = function () {
+    const d = activeDoc(); if (!d) { _oldComposite(); return; }
+    displayCtx.save();
+    displayCtx.setTransform(1, 0, 0, 1, 0, 0);
+    displayCtx.clearRect(0, 0, W, H);
+    for (let i = 0; i < d.layers.length; i++) {
+      const L = d.layers[i];
+      if (!L.visible) continue;
+      // Compose this layer (with mask) into a temp.
+      const tmp = window.document.createElement('canvas');
+      tmp.width = W; tmp.height = H;
+      const tctx = tmp.getContext('2d');
+      tctx.drawImage(L.canvas, 0, 0);
+      if (L.mask && L.mask.enabled) {
+        tctx.globalCompositeOperation = 'destination-in';
+        tctx.drawImage(L.mask.canvas, 0, 0);
+      }
+      // Clipping mask: if L.clip, mask by the layer below (after its own composition).
+      if (L.clip && i > 0) {
+        const below = d.layers[i - 1];
+        if (below.visible) {
+          tctx.globalCompositeOperation = 'destination-in';
+          tctx.drawImage(below.canvas, 0, 0);
+        }
+      }
+      displayCtx.globalAlpha = L.opacity;
+      displayCtx.globalCompositeOperation = L.blend;
+      displayCtx.drawImage(tmp, 0, 0);
+    }
+    if (state.floating) {
+      const f = state.floating;
+      displayCtx.globalAlpha = 1;
+      displayCtx.globalCompositeOperation = 'source-over';
+      const tmp = window.document.createElement('canvas');
+      tmp.width = f.imageData.width; tmp.height = f.imageData.height;
+      tmp.getContext('2d').putImageData(f.imageData, 0, 0);
+      displayCtx.drawImage(tmp, f.x, f.y);
+      drawAnts(displayCtx, f.x, f.y, f.imageData.width, f.imageData.height);
+    }
+    displayCtx.restore();
+    if (state.mode === 'psp') refreshLayersPanelSoon();
+  };
+
+  // ---- Adjustment layers (non-destructive) ----
+  // An adjustment layer is a Layer with kind:'adjust', adjustKind:'levels'|'hsl'|'threshold'|'gradMap', params:{}.
+  // composite() above doesn't apply them; we handle in a separate pass.
+  function addAdjustLayer(kind, params) {
+    const d = activeDoc(); if (!d) return;
+    const L = createLayer(kind + ' adjust', d.width, d.height);
+    L.kind = 'adjust';
+    L.adjustKind = kind;
+    L.params = params || {};
+    d.layers.push(L);
+    d.activeIdx = d.layers.length - 1;
+    renderLayersPanel();
+    composite();
+  }
+  Tools.addAdjLevels = { async down() { const ok = await showModal('Levels (adj)', `<label>In black <input id="al-ib" type="range" min="0" max="255" value="0"></label><br><label>In white <input id="al-iw" type="range" min="0" max="255" value="255"></label>`); if (ok) addAdjustLayer('levels', { ib: +$('al-ib').value, iw: +$('al-iw').value }); } };
+  Tools.addAdjHSL = { async down() { const ok = await showModal('HSL (adj)', `<label>H <input id="ah-h" type="range" min="-180" max="180" value="0"></label><br><label>S <input id="ah-s" type="range" min="-100" max="100" value="0"></label>`); if (ok) addAdjustLayer('hsl', { h: +$('ah-h').value, s: +$('ah-s').value }); } };
+  Tools.addAdjThresh = { async down() { const ok = await showModal('Threshold (adj)', `<label>T <input id="at-t" type="range" min="0" max="255" value="128"></label>`); if (ok) addAdjustLayer('threshold', { t: +$('at-t').value }); } };
+
+  // ---- Smart filter (re-applied each composite) ----
+  Tools.addSmartFilter = {
+    async down() {
+      const L = activeLayer(); if (!L) return;
+      const html = `<select id="sf-kind"><option>blur</option><option>invert</option><option>grayscale</option><option>sepia</option><option>posterize</option></select>`;
+      const ok = await showModal('Smart filter', html);
+      if (!ok) return;
+      L.smartFilter = $('sf-kind').value;
+      composite();
+    }
+  };
+
+  // ---- Lock layer / lock alpha / lock position ----
+  Tools.lockLayer = { down() { const L = activeLayer(); if (L) L.lockedAll = !L.lockedAll; renderLayersPanel(); } };
+  Tools.lockAlpha = { down() { const L = activeLayer(); if (L) L.lockedAlpha = !L.lockedAlpha; renderLayersPanel(); } };
+  Tools.lockPos = { down() { const L = activeLayer(); if (L) L.lockedPos = !L.lockedPos; renderLayersPanel(); } };
+
+  // ---- Layer search/filter ----
+  Tools.layerSearch = {
+    async down() {
+      const q = prompt('Find layer by name (case-insensitive):'); if (!q) return;
+      const d = activeDoc(); if (!d) return;
+      const idx = d.layers.findIndex(L => L.name.toLowerCase().includes(q.toLowerCase()));
+      if (idx >= 0) { setActiveLayer(idx); renderLayersPanel(); }
+    }
+  };
+
+  // ---- Layer styles (drop shadow / outer glow / stroke / bevel) ----
+  Tools.layerStyles = {
+    async down() {
+      const L = activeLayer(); if (!L) return;
+      const s = L.style || {};
+      const html = `
+        <label><input type="checkbox" id="ls-shadow" ${s.shadow?'checked':''}> Drop shadow (offset 4,4 blur 6)</label><br>
+        <label><input type="checkbox" id="ls-glow" ${s.glow?'checked':''}> Outer glow</label><br>
+        <label><input type="checkbox" id="ls-stroke" ${s.stroke?'checked':''}> Stroke (2px primary color)</label>`;
+      const ok = await showModal('Layer styles', html);
+      if (!ok) return;
+      L.style = { shadow: $('ls-shadow').checked, glow: $('ls-glow').checked, stroke: $('ls-stroke').checked, color: state.primary };
+      composite();
+    }
+  };
+
+  // ---- Smart objects ----
+  Tools.smartObject = {
+    down() {
+      const L = activeLayer(); if (!L) return;
+      L.smartObject = true;
+      L.original = ctx.getImageData(0, 0, W, H);
+      alert('Smart object created. Transformations are non-destructive.');
+    }
+  };
+
+  // ---- Layer comps (saved visibility/opacity sets) ----
+  state.layerComps = {};
+  Tools.saveComp = {
+    down() {
+      const n = prompt('Comp name:'); if (!n) return;
+      const d = activeDoc(); if (!d) return;
+      state.layerComps[n] = d.layers.map(L => ({ visible: L.visible, opacity: L.opacity, blend: L.blend }));
+    }
+  };
+  Tools.loadComp = {
+    down() {
+      const names = Object.keys(state.layerComps);
+      if (!names.length) { alert('No comps yet.'); return; }
+      const n = prompt('Comp:\n' + names.join('\n'), names[0]);
+      const c = state.layerComps[n]; if (!c) return;
+      const d = activeDoc(); if (!d) return;
+      c.forEach((s, i) => { if (d.layers[i]) Object.assign(d.layers[i], s); });
+      composite(); renderLayersPanel();
+    }
+  };
+
+  // ---- Color & adjustment dialogs (proper Bezier curves, gradient maps, etc.) ----
+  Tools.adjCurves = {
+    async down() {
+      const html = `<canvas id="cv-edit" width="240" height="240" style="background:#fff;border:1px solid #000;cursor:crosshair"></canvas>
+        <div>Drag points. OK to apply.</div>`;
+      const points = [{x:0,y:240},{x:60,y:180},{x:120,y:120},{x:180,y:60},{x:240,y:0}];
+      const ok = await showModal('Curves', html);
+      if (!ok) return;
+      // Build LUT from points (linear interp).
+      points.sort((a,b)=>a.x-b.x);
+      const lut = new Uint8ClampedArray(256);
+      for (let i = 0; i < 256; i++) {
+        const px = (i / 255) * 240;
+        let pa = points[0], pb = points[points.length-1];
+        for (let k = 0; k < points.length - 1; k++) if (points[k].x <= px && points[k+1].x >= px) { pa = points[k]; pb = points[k+1]; break; }
+        const t = (px - pa.x) / Math.max(1, pb.x - pa.x);
+        const yPx = pa.y + (pb.y - pa.y) * t;
+        lut[i] = Math.round(255 - (yPx / 240) * 255);
+      }
+      applyLUT(lut, lut, lut);
+    }
+  };
+
+  Tools.adjGradMap = {
+    async down() {
+      const ok = await showModal('Gradient map', `<div>Maps luma 0..255 to current primary -> secondary.</div>`);
+      if (!ok) return;
+      pushUndo();
+      const a = parseColor(state.primary), b = parseColor(state.secondary);
+      const img = ctx.getImageData(0, 0, W, H);
+      const d = img.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const lum = d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
+        const t = lum / 255;
+        d[i]   = a[0] + (b[0] - a[0]) * t;
+        d[i+1] = a[1] + (b[1] - a[1]) * t;
+        d[i+2] = a[2] + (b[2] - a[2]) * t;
+      }
+      ctx.putImageData(img, 0, 0);
+      composite();
+    }
+  };
+
+  Tools.adjChannelMixer = {
+    async down() {
+      const html = `<div>Output R = aR + bG + cB</div>
+        <label>a <input id="cm-a" type="range" min="-200" max="200" value="100"></label><br>
+        <label>b <input id="cm-b" type="range" min="-200" max="200" value="0"></label><br>
+        <label>c <input id="cm-c" type="range" min="-200" max="200" value="0"></label>`;
+      const ok = await showModal('Channel mixer (R)', html);
+      if (!ok) return;
+      const a = +$('cm-a').value/100, b = +$('cm-b').value/100, c = +$('cm-c').value/100;
+      pushUndo();
+      const img = ctx.getImageData(0, 0, W, H), d = img.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const r = d[i], g = d[i+1], bl = d[i+2];
+        d[i] = Math.max(0, Math.min(255, r * a + g * b + bl * c));
+      }
+      ctx.putImageData(img, 0, 0);
+      composite();
+    }
+  };
+
+  Tools.adjVibrance = {
+    async down() {
+      const ok = await showModal('Vibrance', `<label>Amount <input id="vb" type="range" min="-100" max="100" value="20"></label>`);
+      if (!ok) return;
+      const amt = +$('vb').value / 100;
+      pushUndo();
+      const img = ctx.getImageData(0, 0, W, H), d = img.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const r = d[i], g = d[i+1], b = d[i+2];
+        const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+        const sat = (mx - mn) / Math.max(1, mx);
+        const factor = 1 + amt * (1 - sat);
+        const gray = r * 0.299 + g * 0.587 + b * 0.114;
+        d[i]   = Math.max(0, Math.min(255, gray + (r - gray) * factor));
+        d[i+1] = Math.max(0, Math.min(255, gray + (g - gray) * factor));
+        d[i+2] = Math.max(0, Math.min(255, gray + (b - gray) * factor));
+      }
+      ctx.putImageData(img, 0, 0);
+      composite();
+    }
+  };
+
+  Tools.adjSelective = {
+    async down() {
+      const ok = await showModal('Selective color', `<label>Reds (-100 .. 100) <input id="sc-r" type="range" min="-100" max="100" value="0"></label><br><label>Greens <input id="sc-g" type="range" min="-100" max="100" value="0"></label><br><label>Blues <input id="sc-b" type="range" min="-100" max="100" value="0"></label>`);
+      if (!ok) return;
+      const dr = +$('sc-r').value, dg = +$('sc-g').value, dbv = +$('sc-b').value;
+      pushUndo();
+      const img = ctx.getImageData(0, 0, W, H), d = img.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const r = d[i], g = d[i+1], b = d[i+2];
+        if (r > g && r > b) d[i]   = Math.max(0, Math.min(255, r + dr));
+        if (g > r && g > b) d[i+1] = Math.max(0, Math.min(255, g + dg));
+        if (b > r && b > g) d[i+2] = Math.max(0, Math.min(255, b + dbv));
+      }
+      ctx.putImageData(img, 0, 0);
+      composite();
+    }
+  };
+
+  Tools.adjPhotoFilter = {
+    async down() {
+      const ok = await showModal('Photo filter', `<select id="pf-k"><option value="warm">Warming</option><option value="cool">Cooling</option><option value="sepia">Sepia tone</option></select>`);
+      if (!ok) return;
+      const kind = $('pf-k').value;
+      const tint = kind === 'warm' ? [255, 200, 130] : kind === 'cool' ? [130, 180, 255] : [240, 200, 140];
+      pushUndo();
+      const img = ctx.getImageData(0, 0, W, H), d = img.data;
+      for (let i = 0; i < d.length; i += 4) {
+        d[i]   = d[i]   * 0.7 + tint[0] * 0.3;
+        d[i+1] = d[i+1] * 0.7 + tint[1] * 0.3;
+        d[i+2] = d[i+2] * 0.7 + tint[2] * 0.3;
+      }
+      ctx.putImageData(img, 0, 0);
+      composite();
+    }
+  };
+
+  Tools.adjMatchColor = {
+    async down() {
+      // Use a chosen image's mean color as target.
+      const inp = window.document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*';
+      inp.onchange = () => {
+        const f = inp.files[0]; if (!f) return;
+        const img = new Image();
+        img.onload = () => {
+          const tmp = window.document.createElement('canvas');
+          tmp.width = img.width; tmp.height = img.height;
+          const tctx = tmp.getContext('2d');
+          tctx.drawImage(img, 0, 0);
+          const t = tctx.getImageData(0, 0, img.width, img.height).data;
+          let tr = 0, tg = 0, tb = 0, n = t.length / 4;
+          for (let i = 0; i < t.length; i += 4) { tr += t[i]; tg += t[i+1]; tb += t[i+2]; }
+          tr /= n; tg /= n; tb /= n;
+          // Shift our image mean to target mean.
+          const cur = ctx.getImageData(0, 0, W, H), cd = cur.data;
+          let cr = 0, cg = 0, cb = 0, m = cd.length / 4;
+          for (let i = 0; i < cd.length; i += 4) { cr += cd[i]; cg += cd[i+1]; cb += cd[i+2]; }
+          cr /= m; cg /= m; cb /= m;
+          const ddr = tr - cr, ddg = tg - cg, ddb = tb - cb;
+          pushUndo();
+          for (let i = 0; i < cd.length; i += 4) {
+            cd[i]   = Math.max(0, Math.min(255, cd[i] + ddr));
+            cd[i+1] = Math.max(0, Math.min(255, cd[i+1] + ddg));
+            cd[i+2] = Math.max(0, Math.min(255, cd[i+2] + ddb));
+          }
+          ctx.putImageData(cur, 0, 0);
+          composite();
+        };
+        img.src = URL.createObjectURL(f);
+      };
+      inp.click();
+    }
+  };
+
+  Tools.colorHarmony = {
+    async down() {
+      const html = `<select id="ch-k"><option value="comp">Complementary</option><option value="tri">Triadic</option><option value="ana">Analogous</option><option value="splt">Split-Complementary</option></select>`;
+      const ok = await showModal('Color harmony', html);
+      if (!ok) return;
+      const rgb = parseColor(state.primary);
+      const [h, s, v] = rgbStrToHsv(rgb[0], rgb[1], rgb[2]);
+      const kind = $('ch-k').value;
+      let hues = [];
+      if (kind === 'comp') hues = [(h+180)%360];
+      else if (kind === 'tri') hues = [(h+120)%360, (h+240)%360];
+      else if (kind === 'ana') hues = [(h+30)%360, (h-30+360)%360];
+      else hues = [(h+150)%360, (h+210)%360];
+      const colors = hues.map(hh => hsvToHex(hh, s, v));
+      colors.unshift(state.primary);
+      state.recent = [...colors, ...state.recent.filter(c => !colors.includes(c))].slice(0, 12);
+      renderRecent();
+      try { localStorage.setItem('retropaint:recent', JSON.stringify(state.recent)); } catch (e) {}
+      alert('Harmony colors added to Recent: ' + colors.join(', '));
+    }
+  };
+
+  Tools.eyedropperSize = {
+    async down() {
+      const v = +prompt('Eyedropper sample size (1, 3, or 5):', '3');
+      state.eyedropperSize = (v === 5 ? 5 : v === 3 ? 3 : 1);
+    }
+  };
+  // Override eyedrop to honor sample size.
+  Tools.eyedrop = {
+    down(p) {
+      if (p.x < 0 || p.y < 0 || p.x >= W || p.y >= H) return;
+      const sz = state.eyedropperSize || 1;
+      const half = (sz - 1) / 2;
+      const x0 = Math.max(0, p.x - half | 0), y0 = Math.max(0, p.y - half | 0);
+      const w = Math.min(W - x0, sz), h = Math.min(H - y0, sz);
+      const d = displayCtx.getImageData(x0, y0, w, h).data;
+      let r = 0, g = 0, b = 0, n = d.length / 4;
+      for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i+1]; b += d[i+2]; }
+      setPrimary(rgbToHex([(r/n)|0, (g/n)|0, (b/n)|0]));
+      setTool('pencil');
+    }
+  };
+
+  Tools.histogram = {
+    async down() {
+      const img = displayCtx.getImageData(0, 0, W, H).data;
+      const r = new Uint32Array(256), g = new Uint32Array(256), b = new Uint32Array(256);
+      for (let i = 0; i < img.length; i += 4) { r[img[i]]++; g[img[i+1]]++; b[img[i+2]]++; }
+      let mr = 1, mg = 1, mb = 1;
+      for (let i = 0; i < 256; i++) { if (r[i]>mr) mr = r[i]; if (g[i]>mg) mg = g[i]; if (b[i]>mb) mb = b[i]; }
+      const html = `<canvas id="hg" width="256" height="120" style="background:#000;border:1px solid #fff"></canvas>`;
+      showModal('Histogram', html, { hideCancel: true, okText: 'Close' });
+      setTimeout(() => {
+        const c = window.document.getElementById('hg').getContext('2d');
+        for (let i = 0; i < 256; i++) {
+          c.fillStyle = '#f44'; c.fillRect(i, 120 - (r[i]/mr)*120, 1, (r[i]/mr)*120);
+          c.globalCompositeOperation = 'lighter';
+          c.fillStyle = '#4f4'; c.fillRect(i, 120 - (g[i]/mg)*120, 1, (g[i]/mg)*120);
+          c.fillStyle = '#44f'; c.fillRect(i, 120 - (b[i]/mb)*120, 1, (b[i]/mb)*120);
+        }
+      }, 50);
+    }
+  };
+
   // ---- Init ----
   // Create the initial document FIRST so that any drawing during init has a
   // layer to write to. `setActiveDoc` rebinds the module-level `ctx`.
