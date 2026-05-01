@@ -579,6 +579,75 @@
     }
   };
 
+  // ---- MacPaint pattern fill bucket: floods then paints with active pattern ----
+  function patternFloodFill(x, y) {
+    if (x < 0 || y < 0 || x >= W || y >= H) return;
+    const img = ctx.getImageData(0, 0, W, H);
+    const data = img.data;
+    const idx = (cx, cy) => (cy * W + cx) * 4;
+    const i0 = idx(x, y);
+    const tr = data[i0], tg = data[i0+1], tb = data[i0+2], ta = data[i0+3];
+    const mask = new Uint8Array(W * H);
+    const stack = [[x, y]];
+    let minX = x, maxX = x, minY = y, maxY = y;
+    while (stack.length) {
+      const [cx, cy] = stack.pop();
+      if (cx < 0 || cy < 0 || cx >= W || cy >= H) continue;
+      const m = cy * W + cx;
+      if (mask[m]) continue;
+      const i = m * 4;
+      if (data[i] !== tr || data[i+1] !== tg || data[i+2] !== tb || data[i+3] !== ta) continue;
+      mask[m] = 1;
+      if (cx < minX) minX = cx; if (cx > maxX) maxX = cx;
+      if (cy < minY) minY = cy; if (cy > maxY) maxY = cy;
+      stack.push([cx+1, cy], [cx-1, cy], [cx, cy+1], [cx, cy-1]);
+    }
+    // Build a temp mask canvas, then composite pattern through it.
+    const maskCanvas = window.document.createElement('canvas');
+    maskCanvas.width = W; maskCanvas.height = H;
+    const mctx = maskCanvas.getContext('2d');
+    const mImg = mctx.createImageData(W, H);
+    for (let i = 0, p = 0; i < mask.length; i++, p += 4) {
+      if (mask[i]) {
+        mImg.data[p] = mImg.data[p+1] = mImg.data[p+2] = 0;
+        mImg.data[p+3] = 255;
+      }
+    }
+    mctx.putImageData(mImg, 0, 0);
+    // Patterned fill: draw pattern then keep only over the mask.
+    ensureMacPatterns();
+    const fillCanvas = window.document.createElement('canvas');
+    fillCanvas.width = W; fillCanvas.height = H;
+    const fctx = fillCanvas.getContext('2d');
+    fctx.fillStyle = MAC_PATTERN_PATTERNS[macPatternIdx] || '#000';
+    fctx.fillRect(0, 0, W, H);
+    fctx.globalCompositeOperation = 'destination-in';
+    fctx.drawImage(maskCanvas, 0, 0);
+    ctx.drawImage(fillCanvas, 0, 0);
+  }
+
+  // Register a macFill tool that uses pattern-based fill.
+  Tools.macFill = { down(p) { pushUndo(); patternFloodFill(p.x, p.y); } };
+  Tools.macBrush = {
+    down(p) { ensureMacPatterns(); ctx.fillStyle = macPatternFill(); ctx.beginPath(); ctx.arc(p.x, p.y, state.size, 0, Math.PI*2); ctx.fill(); },
+    move(p) {
+      ensureMacPatterns();
+      ctx.strokeStyle = macPatternFill();
+      ctx.lineWidth = state.size * 2;
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.beginPath(); ctx.moveTo(state.lastX, state.lastY); ctx.lineTo(p.x, p.y); ctx.stroke();
+    }
+  };
+  Tools.fatbits = { down(p) { openFatBits(p.x, p.y); } };
+  // Goodies actions registered as one-shot tools.
+  Tools.gInvert = { down() { goodiesInvert(); } };
+  Tools.gFlipH = { down() { goodiesFlipH(); } };
+  Tools.gFlipV = { down() { goodiesFlipV(); } };
+  Tools.gRot90 = { down() { goodiesRotate(90); } };
+  Tools.gRot180 = { down() { goodiesRotate(180); } };
+  Tools.gTrace = { down() { goodiesTraceEdges(); } };
+  Tools.gThreshold = { down() { pushUndo(); thresholdActiveLayerToBW(); } };
+
   // ---- Lasso tool (Path2D from polyline) ----
   Tools.lasso = {
     down(p) {
@@ -936,6 +1005,9 @@
       dispatchTool('up', p);
     }
     recordStrokeEnd();
+    // MacPaint: collapse the active layer to 1-bit B&W with Bayer dither
+    // after every stroke commit. Skips during the live drag.
+    if (state.mode === 'macpaint') thresholdActiveLayerToBW();
     scheduleAutosave();
   }
   canvas.addEventListener('pointerup', endStroke);
@@ -991,6 +1063,36 @@
     });
     setPrimary(palette[0]);
     setSecondary(palette[palette.length - 1]);
+
+    // MacPaint: render the 38 fill patterns below the palette.
+    if (state.mode === 'macpaint') {
+      ensureMacPatterns();
+      const lab = window.document.createElement('div');
+      lab.className = 'recent-label';
+      lab.textContent = 'Patterns';
+      root.appendChild(lab);
+      const strip = window.document.createElement('div');
+      strip.className = 'palette-grid';
+      strip.style.gridTemplateColumns = 'repeat(2, 22px)';
+      MAC_PATTERN_CANVASES.forEach((tileCanvas, idx) => {
+        const sw = window.document.createElement('button');
+        sw.className = 'palette-swatch-item';
+        sw.style.backgroundImage = `url(${tileCanvas.toDataURL()})`;
+        sw.style.backgroundRepeat = 'repeat';
+        sw.style.backgroundColor = '#fff';
+        sw.title = 'Pattern ' + (idx + 1);
+        sw.addEventListener('click', () => {
+          macPatternIdx = idx;
+          // visual highlight
+          [...strip.children].forEach(el => el.style.outline = '');
+          sw.style.outline = '2px solid #f00';
+          Sounds.click();
+        });
+        if (idx === macPatternIdx) sw.style.outline = '2px solid #f00';
+        strip.appendChild(sw);
+      });
+      root.appendChild(strip);
+    }
   }
 
   function setPrimary(c) {
@@ -1264,6 +1366,227 @@
     state.shift = e.shiftKey;
     if (e.key === ' ') { state.spaceHeld = false; canvas.style.cursor = ''; }
   });
+
+  // ---- MacPaint: 38 8x8 fill patterns ----
+  // Each entry is a string of 64 chars ('1' = black, '0' = white).
+  const MAC_PATTERN_BITS = [
+    '1111111111111111111111111111111111111111111111111111111111111111', // solid black
+    '0000000000000000000000000000000000000000000000000000000000000000', // solid white
+    '1010101010101010101010101010101010101010101010101010101010101010', // 50% checker
+    '1100110011001100110011001100110011001100110011001100110011001100', // vertical 2px
+    '1111000011110000111100001111000011110000111100001111000011110000', // horiz 4px
+    '1010000010100000101000001010000010100000101000001010000010100000', // sparse dots
+    '0101101001011010010110100101101001011010010110100101101001011010', // 50% offset
+    '1000000001000000001000000001000000001000000001000000010000000010', // diagonal 1
+    '0001000000010000000100000001000000010000000100000001000000010000', // diagonal 2
+    '1000100010001000100010001000100010001000100010001000100010001000', // brick 1
+    '1000100010001000111111111000100010001000100010001111111110001000', // brick 2
+    '1111111110000001100000011000000110000001100000011000000111111111', // outline box
+    '0000000001111110010000100100001001000010010000100111111000000000', // hollow box
+    '0000000000011000001111000111111001111110001111000001100000000000', // diamond
+    '1100001100110011001100110000110000001100001100110011001100110011', // tight checker
+    '1010010110100101101001011010010110100101101001011010010110100101', // dense diag
+    '0011001100110011110011001100110000110011001100111100110011001100', // basket
+    '1000010000010001000010000001000000100100001010000100010001000100', // sparse star
+    '1111111111000011110000111100001111000011110000111100001111111111', // window pane
+    '0000000000111100011001100110011001100110011001100011110000000000', // diamond hollow
+    '1010101010101010110011001100110010101010101010101100110011001100', // alternating tiles
+    '1100110000110011110011000011001111001100001100111100110000110011', // tweed
+    '1111110011110000111100001111000011110000111100001111000011111111', // ladder
+    '1000100001000100001000100001000110001000010001000010001000010001', // grid bumps
+    '1110011111000011100000010000000010000000100000011100001111100111', // big diamond
+    '0001100000111100011111101111111101111110001111000001100000000000', // chevron diamond
+    '1010000001010000101000000101000010100000010100001010000001010000', // light spot
+    '1111000011001100110000111111000011001100110000111111000011001100', // weave
+    '1000000010000000100000001111111110000000100000001000000011111111', // grid lines
+    '0001100100110010110001011001000110010001110010011001100100011001', // crosshatch
+    '1000010001000010001000010001000010000001000000100000010000001000', // sparse plus
+    '0010001001000100100010000100010000100010010001001000100001000100', // herringbone
+    '1010010110100101010110100101101010100101101001010101101001011010', // jagged
+    '1111000010101010111100001010101011110000101010101111000010101010', // band tile
+    '0000111100110011110011000000111100110011110011000000111100110011', // tilted brick
+    '1010101001010101101010100101010110101010010101011010101001010101', // 50% checker offset
+    '1111100011110000111000001100000010000000000000000000000000000000', // gradient triangle
+    '1100110001100110001100110001100100110011011001101100110011001100'  // herringbone heavy
+  ];
+  function bitsToTileCanvas(bits) {
+    const c = window.document.createElement('canvas');
+    c.width = 8; c.height = 8;
+    const ctx2 = c.getContext('2d');
+    const id = ctx2.createImageData(8, 8);
+    for (let i = 0; i < 64; i++) {
+      const v = bits[i] === '1' ? 0 : 255;
+      const o = i * 4;
+      id.data[o] = id.data[o+1] = id.data[o+2] = v;
+      id.data[o+3] = 255;
+    }
+    ctx2.putImageData(id, 0, 0);
+    return c;
+  }
+  let MAC_PATTERN_CANVASES = null;
+  let MAC_PATTERN_PATTERNS = null;
+  function ensureMacPatterns() {
+    if (MAC_PATTERN_CANVASES) return;
+    MAC_PATTERN_CANVASES = MAC_PATTERN_BITS.map(bitsToTileCanvas);
+    MAC_PATTERN_PATTERNS = MAC_PATTERN_CANVASES.map(c => ctx.createPattern(c, 'repeat'));
+  }
+  // Currently-selected MacPaint pattern (index 0 = solid black).
+  let macPatternIdx = 0;
+  function macPatternFill() {
+    ensureMacPatterns();
+    return MAC_PATTERN_PATTERNS[macPatternIdx] || '#000';
+  }
+
+  // ---- 1-bit B&W threshold pass (MacPaint) ----
+  // Bayer 4x4 ordered dither for grayscale tones.
+  const BAYER4 = [
+    [ 0,  8,  2, 10],
+    [12,  4, 14,  6],
+    [ 3, 11,  1,  9],
+    [15,  7, 13,  5]
+  ];
+  function thresholdActiveLayerToBW() {
+    const img = ctx.getImageData(0, 0, W, H);
+    const d = img.data;
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const o = (y * W + x) * 4;
+        if (d[o+3] === 0) continue;
+        const luma = d[o] * 0.299 + d[o+1] * 0.587 + d[o+2] * 0.114;
+        const t = (BAYER4[y & 3][x & 3] + 0.5) * 16;  // 0..256
+        const bw = luma > t ? 255 : 0;
+        d[o] = d[o+1] = d[o+2] = bw;
+        d[o+3] = 255;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+    composite();
+  }
+
+  // ---- MacPaint Goodies (image-wide ops) ----
+  function goodiesInvert() {
+    pushUndo();
+    const img = ctx.getImageData(0, 0, W, H);
+    const d = img.data;
+    for (let i = 0; i < d.length; i += 4) {
+      d[i] = 255 - d[i]; d[i+1] = 255 - d[i+1]; d[i+2] = 255 - d[i+2];
+    }
+    ctx.putImageData(img, 0, 0);
+    composite();
+  }
+  function goodiesFlipH() {
+    pushUndo();
+    const tmp = window.document.createElement('canvas');
+    tmp.width = W; tmp.height = H;
+    tmp.getContext('2d').drawImage(activeLayer().canvas, 0, 0);
+    ctx.save();
+    ctx.setTransform(-1, 0, 0, 1, W, 0);
+    ctx.clearRect(-W, 0, W, H);
+    ctx.drawImage(tmp, 0, 0);
+    ctx.restore();
+    composite();
+  }
+  function goodiesFlipV() {
+    pushUndo();
+    const tmp = window.document.createElement('canvas');
+    tmp.width = W; tmp.height = H;
+    tmp.getContext('2d').drawImage(activeLayer().canvas, 0, 0);
+    ctx.save();
+    ctx.setTransform(1, 0, 0, -1, 0, H);
+    ctx.drawImage(tmp, 0, 0);
+    ctx.restore();
+    composite();
+  }
+  function goodiesRotate(deg) {
+    pushUndo();
+    const tmp = window.document.createElement('canvas');
+    tmp.width = W; tmp.height = H;
+    tmp.getContext('2d').drawImage(activeLayer().canvas, 0, 0);
+    ctx.save();
+    ctx.clearRect(0, 0, W, H);
+    ctx.translate(W / 2, H / 2);
+    ctx.rotate(deg * Math.PI / 180);
+    ctx.drawImage(tmp, -W / 2, -H / 2);
+    ctx.restore();
+    composite();
+  }
+  function goodiesTraceEdges() {
+    pushUndo();
+    const img = ctx.getImageData(0, 0, W, H);
+    const d = img.data;
+    const out = ctx.createImageData(W, H);
+    const od = out.data;
+    const lum = (i) => d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114;
+    for (let y = 1; y < H - 1; y++) {
+      for (let x = 1; x < W - 1; x++) {
+        const i = (y * W + x) * 4;
+        const gx = (
+          -lum(((y-1)*W + (x-1))*4) - 2*lum((y*W + (x-1))*4) - lum(((y+1)*W + (x-1))*4)
+          + lum(((y-1)*W + (x+1))*4) + 2*lum((y*W + (x+1))*4) + lum(((y+1)*W + (x+1))*4)
+        );
+        const gy = (
+          -lum(((y-1)*W + (x-1))*4) - 2*lum(((y-1)*W + x)*4) - lum(((y-1)*W + (x+1))*4)
+          + lum(((y+1)*W + (x-1))*4) + 2*lum(((y+1)*W + x)*4) + lum(((y+1)*W + (x+1))*4)
+        );
+        const m = Math.min(255, Math.hypot(gx, gy));
+        const bw = m > 64 ? 0 : 255;
+        od[i] = od[i+1] = od[i+2] = bw;
+        od[i+3] = 255;
+      }
+    }
+    ctx.putImageData(out, 0, 0);
+    composite();
+  }
+
+  // ---- FatBits modal (MacPaint pixel editor) ----
+  function openFatBits(centerX, centerY) {
+    const ZOOM = 16;
+    const SIZE = 16;
+    const sx = Math.max(0, Math.min(W - SIZE, (centerX || W/2) - SIZE/2 | 0));
+    const sy = Math.max(0, Math.min(H - SIZE, (centerY || H/2) - SIZE/2 | 0));
+    const html = `
+      <div>FatBits — click pixels to toggle. Region: ${SIZE}×${SIZE} at (${sx},${sy}).</div>
+      <canvas id="fatbits" width="${SIZE * ZOOM}" height="${SIZE * ZOOM}" style="border:2px solid #000; image-rendering: pixelated; cursor: crosshair; background:#fff; margin-top:8px"></canvas>`;
+    showModal('FatBits', html, { okText: 'Done', hideCancel: true }).then(() => composite());
+    setTimeout(() => {
+      const fb = window.document.getElementById('fatbits');
+      if (!fb) return;
+      const fctx = fb.getContext('2d');
+      fctx.imageSmoothingEnabled = false;
+      function repaint() {
+        const data = ctx.getImageData(sx, sy, SIZE, SIZE);
+        for (let y = 0; y < SIZE; y++) {
+          for (let x = 0; x < SIZE; x++) {
+            const o = (y * SIZE + x) * 4;
+            fctx.fillStyle = `rgb(${data.data[o]},${data.data[o+1]},${data.data[o+2]})`;
+            fctx.fillRect(x * ZOOM, y * ZOOM, ZOOM, ZOOM);
+          }
+        }
+        // grid
+        fctx.strokeStyle = 'rgba(0,0,0,0.25)';
+        fctx.lineWidth = 1;
+        for (let i = 0; i <= SIZE; i++) {
+          fctx.beginPath(); fctx.moveTo(i * ZOOM + 0.5, 0); fctx.lineTo(i * ZOOM + 0.5, SIZE * ZOOM); fctx.stroke();
+          fctx.beginPath(); fctx.moveTo(0, i * ZOOM + 0.5); fctx.lineTo(SIZE * ZOOM, i * ZOOM + 0.5); fctx.stroke();
+        }
+      }
+      function paintAt(ev) {
+        const r = fb.getBoundingClientRect();
+        const px = Math.floor((ev.clientX - r.left) / ZOOM);
+        const py = Math.floor((ev.clientY - r.top) / ZOOM);
+        if (px < 0 || py < 0 || px >= SIZE || py >= SIZE) return;
+        ctx.fillStyle = state.primary;
+        ctx.fillRect(sx + px, sy + py, 1, 1);
+        repaint();
+        composite();
+      }
+      let down = false;
+      fb.addEventListener('pointerdown', (e) => { down = true; pushUndo(); paintAt(e); });
+      fb.addEventListener('pointermove', (e) => { if (down) paintAt(e); });
+      fb.addEventListener('pointerup', () => down = false);
+      repaint();
+    }, 50);
+  }
 
   // ---- Brush opacity ----
   const opacityInput = $('brush-opacity');

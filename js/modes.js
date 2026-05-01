@@ -572,13 +572,12 @@
       { id: 'stamp:smiley',    label: 'Smiley',    icon: '🙂', kind: 'stamp', stamp: 'smiley',    stampSet: 'kidpix' },
       { id: 'stamp:star2',     label: 'Pop★',      icon: '🌟', kind: 'stamp', stamp: 'star2',     stampSet: 'kidpix' }
     ],
-    // MacPaint — clones MS Paint tools for Phase 1; Phase 3 adds patterns/FatBits/Goodies.
+    // MacPaint — Phase 3 ships patterns + FatBits + Goodies + lasso.
     macpaint: [
       { id: 'pencil', label: 'Pencil', icon: '✏️', shortcut: 'p' },
-      { id: 'brush', label: 'Brush', icon: '🖌️', shortcut: 'b' },
+      { id: 'macBrush', label: 'P-Brush', icon: '🖌️', shortcut: 'b' },
       { id: 'eraser', label: 'Eraser', icon: '🧽', shortcut: 'e' },
-      { id: 'fill', label: 'Bucket', icon: '🪣', shortcut: 'f' },
-      { id: 'eyedrop', label: 'Pick', icon: '💧', shortcut: 'k' },
+      { id: 'macFill', label: 'P-Fill', icon: '🪣', shortcut: 'f' },
       { id: 'spray', label: 'Spray', icon: '💨', shortcut: 's' },
       { id: 'line', label: 'Line', icon: '╱', shortcut: 'l' },
       { id: 'rect', label: 'Rect', icon: '▭', shortcut: 'r' },
@@ -586,7 +585,15 @@
       { id: 'ellipse', label: 'Oval', icon: '◯', shortcut: 'o' },
       { id: 'ellipseFill', label: 'Oval•', icon: '⬤' },
       { id: 'text', label: 'Text', icon: 'A', shortcut: 't' },
-      { id: 'select', label: 'Marquee', icon: '⬚', shortcut: 'a' }
+      { id: 'select', label: 'Marquee', icon: '⬚', shortcut: 'a' },
+      { id: 'lasso', label: 'Lasso', icon: '◌' },
+      { id: 'fatbits', label: 'FatBits', icon: '🔍' },
+      { id: 'gInvert', label: 'Invert', icon: '◐' },
+      { id: 'gFlipH', label: 'Flip H', icon: '⇄' },
+      { id: 'gFlipV', label: 'Flip V', icon: '⇅' },
+      { id: 'gRot90', label: 'Rot 90', icon: '↻' },
+      { id: 'gTrace', label: 'Trace', icon: '✎' },
+      { id: 'gThreshold', label: '1-Bit', icon: '◑' }
     ],
     // Tux Paint — Phase 1 minimal set; Phase 4 adds magic effects, categorized stamps, mascot.
     tuxpaint: [
