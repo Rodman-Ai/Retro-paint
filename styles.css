@@ -941,3 +941,162 @@ body.mode-psp .palette-grid { grid-template-columns: repeat(2, 22px); }
 .psp-tab.is-active { background: #fff; font-weight: bold; }
 .psp-tab-close { margin-left: 6px; opacity: 0.6; }
 .psp-tab-add { margin-left: 4px; padding: 3px 8px; }
+
+/* =========================================================
+   THEME 7 — Procreate (iPad pro-paint, modern warm)
+   ========================================================= */
+body.mode-procreate {
+  background: #1a1a1a;
+  color: #f4a261;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+}
+body.mode-procreate .app-header {
+  background: linear-gradient(180deg, #2a2a2a 0%, #1f1f1f 100%);
+  color: #fff;
+  border-bottom: 1px solid #444;
+}
+body.mode-procreate .brand-text { color: #fff; }
+body.mode-procreate button,
+body.mode-procreate .mode-btn,
+body.mode-procreate .tool-btn {
+  background: #3a3a3a;
+  color: #f4a261;
+  border: 1px solid #555;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-family: inherit;
+}
+body.mode-procreate button:active,
+body.mode-procreate .tool-btn[data-active="true"],
+body.mode-procreate .mode-btn.is-active { background: #f4a261; color: #1a1a1a; }
+body.mode-procreate .tools-panel,
+body.mode-procreate .palette-panel { background: #222; border-color: #444; }
+body.mode-procreate .canvas-area { background: #2a2a2a; }
+body.mode-procreate .canvas-frame { background: #1a1a1a; border: 1px solid #444; border-radius: 8px; padding: 4px; }
+body.mode-procreate .canvas-titlebar { background: #2a2a2a; color: #fff; border-bottom: 1px solid #444; padding: 6px 10px; }
+body.mode-procreate .tb-btn { background: #3a3a3a; color: #f4a261; border: 1px solid #555; border-radius: 50%; }
+body.mode-procreate .canvas-stage canvas { background: #fff; border-radius: 4px; }
+body.mode-procreate .status-bar { background: #2a2a2a; color: #fff; border-color: #444; }
+body.mode-procreate .palette-swatch,
+body.mode-procreate .palette-swatch-item { border: 1px solid #555; border-radius: 4px; }
+body.mode-procreate button.tool-btn { width: 56px; height: 56px; font-size: 24px; }
+
+/* =========================================================
+   THEME 8 — Aseprite (pixel-art, dark dev tool)
+   ========================================================= */
+body.mode-aseprite {
+  background: #1c1c1c;
+  color: #c2c3c7;
+  font-family: "Consolas", "Monaco", monospace;
+  image-rendering: pixelated;
+}
+body.mode-aseprite .app-header {
+  background: #2c2c2c;
+  color: #c2c3c7;
+  border-bottom: 1px solid #444;
+}
+body.mode-aseprite .brand-text { color: #ff77a8; }
+body.mode-aseprite button,
+body.mode-aseprite .mode-btn,
+body.mode-aseprite .tool-btn {
+  background: #3c3c3c;
+  color: #c2c3c7;
+  border: 1px solid #555;
+  border-radius: 0;
+  padding: 4px 8px;
+  font-family: inherit;
+  font-size: 11px;
+}
+body.mode-aseprite button:active,
+body.mode-aseprite .tool-btn[data-active="true"],
+body.mode-aseprite .mode-btn.is-active { background: #ff77a8; color: #1c1c1c; }
+body.mode-aseprite .tools-panel,
+body.mode-aseprite .palette-panel { background: #2c2c2c; border-color: #444; }
+body.mode-aseprite .canvas-area { background: #1c1c1c; }
+body.mode-aseprite .canvas-frame { background: #2c2c2c; border: 1px solid #444; }
+body.mode-aseprite .canvas-titlebar { background: #3c3c3c; color: #c2c3c7; padding: 3px 8px; font-size: 11px; }
+body.mode-aseprite .canvas-stage canvas { background: #fff; image-rendering: pixelated; }
+body.mode-aseprite .status-bar { background: #2c2c2c; color: #c2c3c7; border-color: #444; font-size: 10px; }
+body.mode-aseprite .palette-swatch,
+body.mode-aseprite .palette-swatch-item { border: 1px solid #555; border-radius: 0; }
+
+/* =========================================================
+   THEME 9 — GIMP (FOSS Photoshop, neutral gray)
+   ========================================================= */
+body.mode-gimp {
+  background: #5b5b5b;
+  color: #e0e0e0;
+  font-family: "Sans", "DejaVu Sans", sans-serif;
+}
+body.mode-gimp .app-header { background: #4a4a4a; color: #fff; border-bottom: 1px solid #2a2a2a; }
+body.mode-gimp .brand-text { color: #fff; }
+body.mode-gimp button,
+body.mode-gimp .mode-btn,
+body.mode-gimp .tool-btn {
+  background: #6a6a6a; color: #fff; border: 1px solid #2a2a2a;
+  border-radius: 3px; padding: 3px 8px; font-family: inherit;
+}
+body.mode-gimp button:active,
+body.mode-gimp .tool-btn[data-active="true"],
+body.mode-gimp .mode-btn.is-active { background: #c0c0c0; color: #000; }
+body.mode-gimp .tools-panel,
+body.mode-gimp .palette-panel { background: #4a4a4a; border-color: #2a2a2a; }
+body.mode-gimp .canvas-area { background: #5b5b5b; }
+body.mode-gimp .canvas-frame { background: #4a4a4a; border: 2px inset #2a2a2a; }
+body.mode-gimp .canvas-titlebar { background: linear-gradient(to bottom, #2a2a2a, #5b5b5b); color: #fff; padding: 3px 8px; }
+body.mode-gimp .canvas-stage canvas { background: #fff; }
+body.mode-gimp .status-bar { background: #4a4a4a; color: #fff; border-color: #2a2a2a; font-size: 11px; }
+body.mode-gimp .palette-swatch,
+body.mode-gimp .palette-swatch-item { border: 1px solid #2a2a2a; border-radius: 3px; }
+
+/* =========================================================
+   New UX widgets: navigator, reference panel, guides, rulers,
+   color-blind sim overlay, HUD picker.
+   ========================================================= */
+.navigator-panel {
+  position: fixed; right: 8px; top: 50%; transform: translateY(-50%);
+  width: 140px; height: 110px;
+  background: rgba(0,0,0,0.8); border: 2px solid #fff; padding: 4px;
+  z-index: 60; cursor: move;
+}
+.navigator-panel canvas { display: block; width: 100%; height: 100%; }
+.navigator-panel .nav-rect {
+  position: absolute; border: 1.5px solid #ff3; pointer-events: none;
+}
+.reference-panel {
+  position: fixed; bottom: 8px; right: 8px; width: 200px; height: 160px;
+  background: rgba(0,0,0,0.85); border: 2px solid #fff; z-index: 60;
+  display: flex; flex-direction: column;
+}
+.reference-panel img { flex: 1; min-height: 0; object-fit: contain; }
+.reference-panel button { margin: 2px; }
+
+.cbsim-overlay {
+  position: fixed; inset: 0; pointer-events: none; z-index: 90;
+  mix-blend-mode: normal;
+}
+
+.hud-picker {
+  position: fixed; width: 180px; height: 180px; border-radius: 50%;
+  background:
+    conic-gradient(red, yellow, lime, cyan, blue, magenta, red);
+  border: 4px solid #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  z-index: 200; cursor: crosshair; pointer-events: auto;
+  transform: translate(-50%, -50%);
+}
+
+/* Rulers (top + left) */
+.rulers-on .canvas-stage { padding-top: 18px; padding-left: 18px; position: relative; }
+.rulers-on .canvas-stage::before, .rulers-on .canvas-stage::after {
+  content: ''; position: absolute; background: #ddd;
+  background-image: repeating-linear-gradient(to right, #444 0 1px, transparent 1px 10px);
+}
+.rulers-on .canvas-stage::before { top: 0; left: 18px; right: 0; height: 18px; }
+.rulers-on .canvas-stage::after {
+  top: 18px; left: 0; bottom: 0; width: 18px;
+  background-image: repeating-linear-gradient(to bottom, #444 0 1px, transparent 1px 10px);
+}
+
+body.theme-light { filter: none; }
+body.theme-dark .canvas-area { background: #111; }
+body.theme-dark .app-header { filter: brightness(0.85); }

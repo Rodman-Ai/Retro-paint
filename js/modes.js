@@ -490,6 +490,28 @@
       '#808000', '#800080', '#008080',
       '#ff8040', '#40ff80', '#4080ff',
       '#ffc080', '#80ffc0', '#c080ff'
+    ],
+    // Procreate: warm modern palette.
+    procreate: [
+      '#000000', '#ffffff',
+      '#1a1a1a', '#3a3a3a', '#5a5a5a', '#8a8a8a', '#cdcdcd',
+      '#e63946', '#f4a261', '#e9c46a', '#2a9d8f', '#264653',
+      '#a8dadc', '#457b9d', '#1d3557', '#ffafcc', '#cdb4db',
+      '#ffc8dd', '#bde0fe', '#a2d2ff', '#ffd6a5', '#caffbf'
+    ],
+    // Aseprite: classic 16-color indexed (PICO-8-ish).
+    aseprite: [
+      '#000000', '#1d2b53', '#7e2553', '#008751',
+      '#ab5236', '#5f574f', '#c2c3c7', '#fff1e8',
+      '#ff004d', '#ffa300', '#ffec27', '#00e436',
+      '#29adff', '#83769c', '#ff77a8', '#ffccaa'
+    ],
+    // GIMP: ramp from black to white plus standard primaries.
+    gimp: [
+      '#000000', '#202020', '#404040', '#606060',
+      '#808080', '#a0a0a0', '#c0c0c0', '#ffffff',
+      '#ff0000', '#ffff00', '#00ff00', '#00ffff',
+      '#0000ff', '#ff00ff', '#7f3300', '#fa8072'
     ]
   };
 
@@ -677,6 +699,71 @@
       { id: 'pspBalance', label: 'Balance', icon: '⚖️' },
       { id: 'pspThreshold', label: 'Thresh', icon: '◑' },
       { id: 'pspGifExport', label: 'Export', icon: '🎞️' }
+    ],
+    // Procreate: touch-first chunky, with QuickShape/StreamLine/ColorDrop.
+    procreate: [
+      { id: 'pencil', label: 'Pencil', icon: '✏️', shortcut: 'p' },
+      { id: 'brush', label: 'Brush', icon: '🖌️', shortcut: 'b' },
+      { id: 'eraser', label: 'Eraser', icon: '🧽', shortcut: 'e' },
+      { id: 'fill', label: 'ColorDrop', icon: '🪣', shortcut: 'f' },
+      { id: 'spray', label: 'Airbrush', icon: '💨', shortcut: 's' },
+      { id: 'smudge', label: 'Smudge', icon: '👆' },
+      { id: 'line', label: 'Line', icon: '╱', shortcut: 'l' },
+      { id: 'rect', label: 'Rect', icon: '▭', shortcut: 'r' },
+      { id: 'ellipse', label: 'Oval', icon: '◯', shortcut: 'o' },
+      { id: 'gradient', label: 'Gradient', icon: '🌈', shortcut: 'g' },
+      { id: 'text', label: 'Text', icon: 'T', shortcut: 't' },
+      { id: 'pcQuickShape', label: 'QuickShape', icon: '◆' },
+      { id: 'pcStreamLine', label: 'StreamLine', icon: '〜' },
+      { id: 'select', label: 'Selection', icon: '⬚', shortcut: 'a' },
+      { id: 'lasso', label: 'Freehand', icon: '◌' }
+    ],
+    // Aseprite: pixel-art focused.
+    aseprite: [
+      { id: 'pencil', label: 'Pencil', icon: '✏️', shortcut: 'p' },
+      { id: 'eraser', label: 'Eraser', icon: '🧽', shortcut: 'e' },
+      { id: 'fill', label: 'Fill', icon: '🪣', shortcut: 'f' },
+      { id: 'spray', label: 'Spray', icon: '💨', shortcut: 's' },
+      { id: 'line', label: 'Line', icon: '╱', shortcut: 'l' },
+      { id: 'rect', label: 'Rect', icon: '▭', shortcut: 'r' },
+      { id: 'rectFill', label: 'Rect•', icon: '▬' },
+      { id: 'ellipse', label: 'Oval', icon: '◯', shortcut: 'o' },
+      { id: 'select', label: 'Marquee', icon: '⬚', shortcut: 'a' },
+      { id: 'wand', label: 'Wand', icon: '🪄' },
+      { id: 'eyedrop', label: 'Pick', icon: '💧', shortcut: 'k' },
+      { id: 'aseTile', label: 'Tile-Mode', icon: '⊞' },
+      { id: 'aseCycle', label: 'Cycle', icon: '🔁' },
+      { id: 'pspGifExport', label: 'Export', icon: '🎞️' }
+    ],
+    // GIMP: Quick Mask, Script-Fu, paths.
+    gimp: [
+      { id: 'pencil', label: 'Pencil', icon: '✏️', shortcut: 'p' },
+      { id: 'brush', label: 'Paintbrush', icon: '🖌️', shortcut: 'b' },
+      { id: 'eraser', label: 'Eraser', icon: '🧽', shortcut: 'e' },
+      { id: 'fill', label: 'Bucket', icon: '🪣', shortcut: 'f' },
+      { id: 'eyedrop', label: 'Picker', icon: '💧', shortcut: 'k' },
+      { id: 'spray', label: 'Airbrush', icon: '💨', shortcut: 's' },
+      { id: 'smudge', label: 'Smudge', icon: '👆' },
+      { id: 'gradient', label: 'Blend', icon: '🌈', shortcut: 'g' },
+      { id: 'select', label: 'Rect-Select', icon: '⬚', shortcut: 'a' },
+      { id: 'lasso', label: 'Free-Select', icon: '◌' },
+      { id: 'wand', label: 'Fuzzy', icon: '🪄' },
+      { id: 'crop', label: 'Crop', icon: '⛶' },
+      { id: 'text', label: 'Text', icon: 'T', shortcut: 't' },
+      { id: 'pspLevels', label: 'Levels', icon: '📊' },
+      { id: 'pspHSL', label: 'HSL', icon: '🌈' },
+      { id: 'gimpQuickMask', label: 'QuickMask', icon: '🟥' },
+      { id: 'gimpScriptFu', label: 'Script-Fu', icon: '⚙️' },
+      { id: 'history', label: 'History', icon: '🕘' },
+      { id: 'snapshots', label: 'Snaps', icon: '📸' },
+      { id: 'presets', label: 'Presets', icon: '💼' },
+      { id: 'backups', label: 'Backups', icon: '🗂️' },
+      { id: 'navigator', label: 'Navigator', icon: '🗺️' },
+      { id: 'reference', label: 'Reference', icon: '📷' },
+      { id: 'cbsim', label: 'CB-Sim', icon: '👁️' },
+      { id: 'theme', label: 'Theme', icon: '🌓' },
+      { id: 'snap', label: 'Snap-Px', icon: '📐' },
+      { id: 'rulers', label: 'Rulers', icon: '📏' }
     ]
   };
 
@@ -691,7 +778,10 @@
       kidpix: 'KID PIX !',
       macpaint: 'untitled (MacPaint)',
       tuxpaint: 'Tux Paint — New Picture',
-      psp: 'Image1 @ 100% (Layer 1)'
+      psp: 'Image1 @ 100% (Layer 1)',
+      procreate: 'Untitled Artwork',
+      aseprite: 'Sprite-001 (32x32, Indexed)',
+      gimp: '*[Untitled-1] (RGB, 1 layer) — GIMP'
     }
   };
 })(window);

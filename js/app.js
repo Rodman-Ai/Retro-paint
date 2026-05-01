@@ -1539,13 +1539,16 @@
       kidpix: 'Kid Pix',
       macpaint: 'MacPaint',
       tuxpaint: 'Tux Paint',
-      psp: 'Paint Shop Pro'
+      psp: 'Paint Shop Pro',
+      procreate: 'Procreate',
+      aseprite: 'Aseprite',
+      gimp: 'GIMP'
     };
     $('status-mode').textContent = MODE_LABELS[mode] || mode;
     const mascot = $('tux-mascot');
     if (mascot) mascot.hidden = mode !== 'tuxpaint';
   }
-  const VALID_MODES = ['mspaint','mariopaint','kidpix','macpaint','tuxpaint','psp'];
+  const VALID_MODES = ['mspaint','mariopaint','kidpix','macpaint','tuxpaint','psp','procreate','aseprite','gimp'];
 
   function updateStatusPos(p) {
     $('status-pos').textContent = `${p.x}, ${p.y}`;
@@ -1712,6 +1715,9 @@
     if (e.key === '4') return setMode('macpaint');
     if (e.key === '5') return setMode('tuxpaint');
     if (e.key === '6') return setMode('psp');
+    if (e.key === '7') return setMode('procreate');
+    if (e.key === '8') return setMode('aseprite');
+    if (e.key === '9') return setMode('gimp');
     if (k === 'm') return setMuted(!state.muted);
     if (k === 'y') return $('btn-symmetry').click();
     if (k === 'g') return $('btn-grid').click();
@@ -2948,6 +2954,336 @@
   // Hook into endStroke + filter ops to refresh thumbnails.
   const _composite = composite;
   composite = function () { _composite(); if (state.mode === 'psp') refreshLayersPanelSoon(); };
+
+  // ====================================================================
+  // PHASE 1 (round 2) — workflow + modern UX features
+  // ====================================================================
+
+  // ---- Custom keyboard shortcuts ----
+  let userShortcuts = {};
+  try { userShortcuts = JSON.parse(localStorage.getItem('retropaint:shortcuts') || '{}'); } catch (e) {}
+  function bindShortcut(key, action) { userShortcuts[key] = action; try { localStorage.setItem('retropaint:shortcuts', JSON.stringify(userShortcuts)); } catch (e) {} }
+  function shortcutsModal() {
+    const html = `
+      <div>Custom keyboard shortcuts override built-ins.</div>
+      <div style="margin-top:6px;font-family:monospace;font-size:11px">
+        <pre style="white-space:pre-wrap">${JSON.stringify(userShortcuts, null, 2)}</pre>
+      </div>
+      <div style="margin-top:6px">Format: { "key": "toolId" } in localStorage["retropaint:shortcuts"].</div>`;
+    showModal('Keyboard shortcuts', html, { hideCancel: true, okText: 'Close' });
+  }
+
+  // ---- History panel (full undo state list) ----
+  function openHistoryPanel() {
+    const d = activeDoc(); if (!d) return;
+    const total = d.undoStack.length;
+    const items = [];
+    for (let i = total - 1; i >= 0; i--) items.push(`<button data-jump="${i}" style="display:block;width:100%;text-align:left;padding:3px 6px">State ${i + 1}</button>`);
+    showModal('History', `<div style="max-height:50vh;overflow:auto">${items.join('') || '<i>Nothing yet</i>'}</div>`, { hideCancel: true, okText: 'Close' });
+    setTimeout(() => {
+      window.document.querySelectorAll('[data-jump]').forEach(b => {
+        b.addEventListener('click', () => {
+          const target = +b.dataset.jump;
+          while (d.undoStack.length - 1 > target) d.redoStack.push(d.undoStack.pop());
+          while (d.undoStack.length - 1 < target && d.redoStack.length) d.undoStack.push(d.redoStack.pop());
+          const cur = d.undoStack[d.undoStack.length - 1];
+          if (cur) { setActiveLayer(cur.idx); ctx.putImageData(cur.img, 0, 0); composite(); }
+          $('modal').hidden = true;
+        });
+      });
+    }, 50);
+  }
+
+  // ---- Snapshots (named saved states) ----
+  const snapshots = [];
+  function saveSnapshotState(name) {
+    const d = activeDoc(); if (!d) return;
+    const snap = { name: name || ('Snapshot ' + (snapshots.length + 1)),
+                   ts: Date.now(),
+                   data: canvas.toDataURL('image/png') };
+    snapshots.push(snap);
+  }
+  function openSnapshots() {
+    const html = `
+      <div><button id="snap-new">📸 New snapshot</button></div>
+      <div id="snap-list" style="display:grid;grid-template-columns:repeat(2,90px);gap:6px;margin-top:8px">
+        ${snapshots.map((s, i) => `<button data-snap="${i}" style="background:#fff;padding:0;border:2px solid #000;cursor:pointer">
+          <img src="${s.data}" style="max-width:86px;max-height:60px;display:block">
+          <div style="font-size:10px">${s.name}</div></button>`).join('')}
+      </div>`;
+    showModal('Snapshots', html, { hideCancel: true, okText: 'Close' });
+    setTimeout(() => {
+      const nb = window.document.getElementById('snap-new');
+      if (nb) nb.addEventListener('click', () => { saveSnapshotState(); $('modal').hidden = true; openSnapshots(); });
+      window.document.querySelectorAll('[data-snap]').forEach(b => {
+        b.addEventListener('click', () => {
+          const s = snapshots[+b.dataset.snap]; if (!s) return;
+          const img = new Image();
+          img.onload = () => { pushUndo(); ctx.drawImage(img, 0, 0); composite(); $('modal').hidden = true; };
+          img.src = s.data;
+        });
+      });
+    }, 50);
+  }
+
+  // ---- Tool presets ----
+  let toolPresets = [];
+  try { toolPresets = JSON.parse(localStorage.getItem('retropaint:presets') || '[]'); } catch (e) {}
+  function saveToolPreset(name) {
+    const p = { name: name || ('Preset ' + (toolPresets.length + 1)), tool: state.tool, size: state.size, opacity: state.opacity, color: state.primary };
+    toolPresets.push(p);
+    try { localStorage.setItem('retropaint:presets', JSON.stringify(toolPresets)); } catch (e) {}
+  }
+  function applyToolPreset(p) {
+    setTool(p.tool);
+    state.size = p.size; sizeInput.value = p.size; sizeDisp.textContent = p.size;
+    state.opacity = p.opacity; opacityInput.value = Math.round(p.opacity * 100); opacityDisp.textContent = opacityInput.value;
+    setPrimary(p.color);
+  }
+  function openPresets() {
+    const html = `
+      <div><button id="preset-new">＋ Save current as preset</button></div>
+      <div style="margin-top:8px">
+        ${toolPresets.map((p, i) => `<button data-preset="${i}" style="display:block;width:100%;text-align:left;padding:3px 6px;margin-top:2px">
+          <span style="display:inline-block;width:12px;height:12px;background:${p.color};vertical-align:middle"></span>
+          ${p.name} — ${p.tool} @ ${p.size}px ${Math.round(p.opacity*100)}%
+        </button>`).join('')}
+      </div>`;
+    showModal('Tool presets', html, { hideCancel: true, okText: 'Close' });
+    setTimeout(() => {
+      const nb = window.document.getElementById('preset-new');
+      if (nb) nb.addEventListener('click', () => { saveToolPreset(); $('modal').hidden = true; openPresets(); });
+      window.document.querySelectorAll('[data-preset]').forEach(b => {
+        b.addEventListener('click', () => { applyToolPreset(toolPresets[+b.dataset.preset]); $('modal').hidden = true; });
+      });
+    }, 50);
+  }
+
+  // ---- Quick-switch primary/secondary tool (X) ----
+  let lastTool = 'pencil';
+  function quickSwitchTool() {
+    const cur = state.tool;
+    const tools = PaintModes.tools[state.mode] || [];
+    const def = tools.find(t => t.id === lastTool);
+    setTool(lastTool, def);
+    lastTool = cur;
+  }
+
+  // ---- Auto-snapshot every N strokes ----
+  let strokeCount = 0;
+  function strokeAutoSnap() {
+    strokeCount++;
+    if (strokeCount % 25 === 0) saveSnapshotState('auto-' + strokeCount);
+  }
+
+  // ---- Backup vault (last 10 autosaves) ----
+  function pushBackup() {
+    try {
+      const arr = JSON.parse(localStorage.getItem('retropaint:backups') || '[]');
+      arr.push({ ts: Date.now(), data: canvas.toDataURL('image/png') });
+      while (arr.length > 10) arr.shift();
+      localStorage.setItem('retropaint:backups', JSON.stringify(arr));
+    } catch (e) {}
+  }
+  function openBackups() {
+    let arr = [];
+    try { arr = JSON.parse(localStorage.getItem('retropaint:backups') || '[]'); } catch (e) {}
+    const html = arr.length
+      ? arr.map((b, i) => `<button data-bk="${i}" style="display:block;width:100%;text-align:left;padding:4px;margin-top:2px;background:#fff;border:1px solid #000">
+          <img src="${b.data}" style="max-height:40px;max-width:60px;vertical-align:middle"> ${new Date(b.ts).toLocaleString()}</button>`).join('')
+      : '<i>No backups yet</i>';
+    showModal('Backup vault', html, { hideCancel: true, okText: 'Close' });
+    setTimeout(() => {
+      window.document.querySelectorAll('[data-bk]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const b = arr[+btn.dataset.bk]; if (!b) return;
+          const img = new Image();
+          img.onload = () => { pushUndo(); ctx.drawImage(img, 0, 0); composite(); $('modal').hidden = true; };
+          img.src = b.data;
+        });
+      });
+    }, 50);
+  }
+
+  // ---- HUD color picker (long-press canvas) ----
+  let hudPickerEl = null;
+  let hudTimer = null;
+  function showHudPicker(x, y) {
+    hideHudPicker();
+    hudPickerEl = window.document.createElement('div');
+    hudPickerEl.className = 'hud-picker';
+    hudPickerEl.style.left = x + 'px';
+    hudPickerEl.style.top = y + 'px';
+    window.document.body.appendChild(hudPickerEl);
+    function pick(ev) {
+      const r = hudPickerEl.getBoundingClientRect();
+      const cx = r.left + r.width/2, cy = r.top + r.height/2;
+      const dx = ev.clientX - cx, dy = ev.clientY - cy;
+      const ang = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360;
+      const dist = Math.min(1, Math.hypot(dx, dy) / (r.width/2));
+      // Hue from angle, saturation from distance, value=1
+      const c = `hsl(${ang}, ${Math.round(dist*100)}%, 50%)`;
+      setPrimary(rgbStrToHex(c));
+    }
+    hudPickerEl.addEventListener('pointermove', pick);
+    hudPickerEl.addEventListener('pointerup', () => hideHudPicker());
+  }
+  function hideHudPicker() { if (hudPickerEl) { hudPickerEl.remove(); hudPickerEl = null; } }
+  function rgbStrToHex(s) {
+    const tmp = window.document.createElement('div');
+    tmp.style.color = s; window.document.body.appendChild(tmp);
+    const c = getComputedStyle(tmp).color;
+    tmp.remove();
+    const m = c.match(/(\d+),\s*(\d+),\s*(\d+)/);
+    if (!m) return '#000000';
+    return '#' + [+m[1],+m[2],+m[3]].map(v => v.toString(16).padStart(2, '0')).join('');
+  }
+
+  // ---- Touch gestures (multi-finger) ----
+  const activePointers = new Map();
+  canvas.addEventListener('pointerdown', (e) => { activePointers.set(e.pointerId, e); }, true);
+  canvas.addEventListener('pointermove', (e) => { if (activePointers.has(e.pointerId)) activePointers.set(e.pointerId, e); }, true);
+  canvas.addEventListener('pointerup', (e) => {
+    const n = activePointers.size;
+    activePointers.delete(e.pointerId);
+    if (e.pointerType === 'touch') {
+      // Only fire on lift-of-last (so all fingers come up roughly together).
+      if (activePointers.size === 0) {
+        if (n === 2) undo();
+        else if (n === 3) redo();
+      }
+    }
+  }, true);
+
+  // ---- Reference companion window ----
+  function openReference() {
+    let panel = $('reference-panel');
+    if (!panel) {
+      panel = window.document.createElement('div');
+      panel.id = 'reference-panel';
+      panel.className = 'reference-panel';
+      panel.innerHTML = `
+        <img id="reference-img" src="" alt="ref">
+        <button id="reference-close">✕ Close</button>
+        <input id="reference-file" type="file" accept="image/*" style="display:none">
+        <button id="reference-pick">📂 Pick image</button>`;
+      window.document.body.appendChild(panel);
+      window.document.getElementById('reference-close').addEventListener('click', () => panel.remove());
+      window.document.getElementById('reference-pick').addEventListener('click', () => window.document.getElementById('reference-file').click());
+      window.document.getElementById('reference-file').addEventListener('change', (e) => {
+        const f = e.target.files[0]; if (!f) return;
+        window.document.getElementById('reference-img').src = URL.createObjectURL(f);
+      });
+    }
+  }
+
+  // ---- Navigator panel ----
+  let navigator_ = null;
+  function openNavigator() {
+    if (navigator_) { navigator_.remove(); navigator_ = null; return; }
+    navigator_ = window.document.createElement('div');
+    navigator_.className = 'navigator-panel';
+    navigator_.innerHTML = `<canvas width="120" height="90"></canvas><div class="nav-rect"></div>`;
+    window.document.body.appendChild(navigator_);
+    function paint() {
+      const c = navigator_.querySelector('canvas');
+      const cx = c.getContext('2d');
+      cx.fillStyle = '#000'; cx.fillRect(0, 0, c.width, c.height);
+      cx.drawImage(canvas, 0, 0, c.width, c.height);
+      requestAnimationFrame(paint);
+    }
+    paint();
+  }
+
+  // ---- Color blindness simulator overlay ----
+  function simulateCB(kind) {
+    const old = $('cbsim'); if (old) old.remove();
+    if (!kind) return;
+    const filters = {
+      protan: 'url(#protan)',
+      deutan: 'url(#deutan)',
+      tritan: 'url(#tritan)'
+    };
+    // Use CSS filter approximation via SVG color matrix.
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" style="width:0;height:0;position:absolute">
+      <filter id="protan"><feColorMatrix type="matrix" values=".567 .433 0 0 0 .558 .442 0 0 0 0 .242 .758 0 0 0 0 0 1 0"/></filter>
+      <filter id="deutan"><feColorMatrix type="matrix" values=".625 .375 0 0 0 .7 .3 0 0 0 0 .3 .7 0 0 0 0 0 1 0"/></filter>
+      <filter id="tritan"><feColorMatrix type="matrix" values=".95 .05 0 0 0 0 .433 .567 0 0 0 .475 .525 0 0 0 0 0 1 0"/></filter>
+    </svg>`;
+    const ov = window.document.createElement('div');
+    ov.id = 'cbsim';
+    ov.innerHTML = svg;
+    canvas.style.filter = filters[kind] || '';
+    window.document.body.appendChild(ov);
+  }
+
+  // ---- Dark/light theme toggle ----
+  function toggleTheme() {
+    const dark = window.document.body.classList.toggle('theme-dark');
+    try { localStorage.setItem('retropaint:theme', dark ? 'dark' : 'light'); } catch (e) {}
+  }
+
+  // ---- Snap to pixel ----
+  state.snapPixel = false;
+  function setSnapPixel(b) {
+    state.snapPixel = b;
+    try { localStorage.setItem('retropaint:snapPixel', b ? '1' : '0'); } catch (e) {}
+  }
+  // Wrap getPos to round when snap is on.
+  const _getPos = getPos;
+  getPos = function (ev) {
+    const p = _getPos(ev);
+    if (state.snapPixel) { p.x = Math.round(p.x); p.y = Math.round(p.y); }
+    return p;
+  };
+
+  // ---- Rulers / guides toggle ----
+  function toggleRulers() {
+    window.document.body.classList.toggle('rulers-on');
+  }
+
+  // Register all the new actions as one-shot tools (so they appear in toolbars).
+  Tools.history = { down() { openHistoryPanel(); } };
+  Tools.snapshots = { down() { openSnapshots(); } };
+  Tools.presets = { down() { openPresets(); } };
+  Tools.backups = { down() { openBackups(); } };
+  Tools.reference = { down() { openReference(); } };
+  Tools.navigator = { down() { openNavigator(); } };
+  Tools.cbsim = {
+    async down() {
+      const html = `
+        <label><input type="radio" name="cb" value=""> None</label><br>
+        <label><input type="radio" name="cb" value="protan"> Protanopia</label><br>
+        <label><input type="radio" name="cb" value="deutan"> Deuteranopia</label><br>
+        <label><input type="radio" name="cb" value="tritan"> Tritanopia</label>`;
+      const ok = await showModal('Color blindness simulator', html);
+      if (!ok) return;
+      const sel = window.document.querySelector('input[name="cb"]:checked');
+      simulateCB(sel ? sel.value : '');
+    }
+  };
+  Tools.theme = { down() { toggleTheme(); } };
+  Tools.snap = { down() { setSnapPixel(!state.snapPixel); alert('Snap to pixel: ' + (state.snapPixel ? 'ON' : 'OFF')); } };
+  Tools.rulers = { down() { toggleRulers(); } };
+  Tools.shortcuts = { down() { shortcutsModal(); } };
+
+  // Hook stroke completion to autosnap + push backup.
+  const _endStroke = endStroke;
+  endStroke = function (e) { _endStroke(e); strokeAutoSnap(); pushBackup(); };
+
+  // X key for quick-switch.
+  window.addEventListener('keydown', (e) => {
+    if (e.target && /input|textarea/i.test(e.target.tagName)) return;
+    if (e.key.toLowerCase() === 'x' && !e.ctrlKey && !e.metaKey) quickSwitchTool();
+  });
+
+  // Long-press for HUD picker.
+  canvas.addEventListener('pointerdown', (e) => {
+    if (e.pointerType !== 'touch') return;
+    hudTimer = setTimeout(() => showHudPicker(e.clientX, e.clientY), 600);
+  });
+  canvas.addEventListener('pointermove', () => { if (hudTimer) { clearTimeout(hudTimer); hudTimer = null; } });
+  canvas.addEventListener('pointerup', () => { if (hudTimer) { clearTimeout(hudTimer); hudTimer = null; } });
 
   // ---- Init ----
   // Create the initial document FIRST so that any drawing during init has a
