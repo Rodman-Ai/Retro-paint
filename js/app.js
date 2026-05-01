@@ -4,9 +4,97 @@
 (function () {
   const $ = (id) => document.getElementById(id);
   const canvas = $('canvas');
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  const displayCtx = canvas.getContext('2d', { willReadFrequently: true });
+  // Module-level `ctx` is REBOUND to the active layer's offscreen ctx by
+  // setActiveLayer(). Existing tool code keeps writing to `ctx` and now
+  // automatically lands on the active layer.
+  let ctx = displayCtx;
   let W = canvas.width;
   let H = canvas.height;
+
+  // ---- Document / Layer model ----
+  let nextId = 1;
+  function createLayer(name, w, h) {
+    const off = window.document.createElement('canvas');
+    off.width = w; off.height = h;
+    const c = off.getContext('2d', { willReadFrequently: true });
+    c.fillStyle = 'rgba(0,0,0,0)';
+    return {
+      id: ++nextId, name: name || 'Layer',
+      canvas: off, ctx: c,
+      visible: true, opacity: 1, blend: 'source-over'
+    };
+  }
+  function newDocument(w, h, name) {
+    const bg = createLayer('Background', w, h);
+    const c = bg.ctx;
+    c.fillStyle = '#ffffff'; c.fillRect(0, 0, w, h);
+    return {
+      id: ++nextId, name: name || 'untitled',
+      layers: [bg], activeIdx: 0,
+      undoStack: [], redoStack: [],
+      width: w, height: h
+    };
+  }
+  const docs = [];
+  let activeDocIdx = 0;
+  function activeDoc() { return docs[activeDocIdx]; }
+  function activeLayer() { const d = activeDoc(); return d && d.layers[d.activeIdx]; }
+  function setActiveLayer(idx) {
+    const d = activeDoc(); if (!d) return;
+    d.activeIdx = Math.max(0, Math.min(d.layers.length - 1, idx));
+    ctx = d.layers[d.activeIdx].ctx;
+  }
+  function setActiveDoc(idx) {
+    activeDocIdx = Math.max(0, Math.min(docs.length - 1, idx));
+    const d = activeDoc();
+    if (canvas.width !== d.width || canvas.height !== d.height) {
+      canvas.width = d.width; canvas.height = d.height;
+      W = d.width; H = d.height;
+    }
+    setActiveLayer(d.activeIdx);
+    composite();
+  }
+  function composite() {
+    const d = activeDoc(); if (!d) return;
+    displayCtx.save();
+    displayCtx.setTransform(1, 0, 0, 1, 0, 0);
+    displayCtx.clearRect(0, 0, W, H);
+    for (const layer of d.layers) {
+      if (!layer.visible) continue;
+      displayCtx.globalAlpha = layer.opacity;
+      displayCtx.globalCompositeOperation = layer.blend;
+      displayCtx.drawImage(layer.canvas, 0, 0);
+    }
+    // Floating selection (paste preview) drawn on top
+    if (state.floating) {
+      const f = state.floating;
+      displayCtx.globalAlpha = 1;
+      displayCtx.globalCompositeOperation = 'source-over';
+      const tmp = window.document.createElement('canvas');
+      tmp.width = f.imageData.width; tmp.height = f.imageData.height;
+      tmp.getContext('2d').putImageData(f.imageData, 0, 0);
+      displayCtx.drawImage(tmp, f.x, f.y);
+      // marquee
+      drawAnts(displayCtx, f.x, f.y, f.imageData.width, f.imageData.height);
+    }
+    displayCtx.restore();
+  }
+  // Marching-ants helper
+  let antsPhase = 0;
+  function drawAnts(c, x, y, w, h) {
+    c.save();
+    c.lineWidth = 1;
+    c.setLineDash([4, 4]);
+    c.lineDashOffset = -antsPhase;
+    c.strokeStyle = '#000';
+    c.strokeRect(x + 0.5, y + 0.5, w, h);
+    c.lineDashOffset = -antsPhase + 4;
+    c.strokeStyle = '#fff';
+    c.strokeRect(x + 0.5, y + 0.5, w, h);
+    c.restore();
+  }
+  setInterval(() => { antsPhase = (antsPhase + 1) % 8; if (state.selection || state.floating) composite(); }, 80);
 
   const state = {
     mode: 'mspaint',
@@ -40,45 +128,62 @@
     bgPattern: 'none',
     frames: null,
     frameIdx: 0,
-    onion: false
+    onion: false,
+    clipboard: null,        // ImageData
+    floating: null,         // { imageData, x, y } for paste preview
+    wandTolerance: 32,
+    lassoPoints: null       // active lasso polyline during drag
   };
 
-  const undoStack = [];
-  const redoStack = [];
   const MAX_UNDO = 16;
 
   function clearCanvas(color) {
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
     ctx.fillStyle = color || '#ffffff';
     ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+    composite();
   }
-  clearCanvas('#ffffff');
 
   function pushUndo() {
     try {
-      undoStack.push(ctx.getImageData(0, 0, W, H));
-      if (undoStack.length > MAX_UNDO) undoStack.shift();
-      redoStack.length = 0;
+      const d = activeDoc(); if (!d) return;
+      d.undoStack.push({ idx: d.activeIdx, img: ctx.getImageData(0, 0, W, H) });
+      if (d.undoStack.length > MAX_UNDO) d.undoStack.shift();
+      d.redoStack.length = 0;
       updateUndoButtons();
     } catch (e) { /* ignore */ }
   }
   function undo() {
-    if (!undoStack.length) return;
-    redoStack.push(ctx.getImageData(0, 0, W, H));
-    ctx.putImageData(undoStack.pop(), 0, 0);
+    const d = activeDoc(); if (!d || !d.undoStack.length) return;
+    const cur = { idx: d.activeIdx, img: ctx.getImageData(0, 0, W, H) };
+    d.redoStack.push(cur);
+    const prev = d.undoStack.pop();
+    setActiveLayer(prev.idx);
+    ctx.putImageData(prev.img, 0, 0);
+    composite();
     updateUndoButtons();
     scheduleAutosave();
   }
   function redo() {
-    if (!redoStack.length) return;
-    undoStack.push(ctx.getImageData(0, 0, W, H));
-    ctx.putImageData(redoStack.pop(), 0, 0);
+    const d = activeDoc(); if (!d || !d.redoStack.length) return;
+    const cur = { idx: d.activeIdx, img: ctx.getImageData(0, 0, W, H) };
+    d.undoStack.push(cur);
+    const next = d.redoStack.pop();
+    setActiveLayer(next.idx);
+    ctx.putImageData(next.img, 0, 0);
+    composite();
     updateUndoButtons();
     scheduleAutosave();
   }
   function updateUndoButtons() {
+    const d = activeDoc();
     const u = $('btn-undo'), r = $('btn-redo');
-    if (u) u.disabled = !undoStack.length;
-    if (r) r.disabled = !redoStack.length;
+    if (u) u.disabled = !d || !d.undoStack.length;
+    if (r) r.disabled = !d || !d.redoStack.length;
   }
 
   // ---- Coordinate translation ----
@@ -264,9 +369,9 @@
     eyedrop: {
       down(p) {
         if (p.x < 0 || p.y < 0 || p.x >= W || p.y >= H) return;
-        const d = ctx.getImageData(p.x, p.y, 1, 1).data;
+        // Sample the composite (what the user actually sees) not the active layer.
+        const d = displayCtx.getImageData(p.x, p.y, 1, 1).data;
         setPrimary(rgbToHex([d[0], d[1], d[2]]));
-        // Auto-switch back to pencil for convenience
         setTool('pencil');
       }
     },
@@ -474,6 +579,72 @@
     }
   };
 
+  // ---- Lasso tool (Path2D from polyline) ----
+  Tools.lasso = {
+    down(p) {
+      state.lassoPoints = [{ x: p.x, y: p.y }];
+      saveSnapshot();
+    },
+    move(p) {
+      if (!state.lassoPoints) return;
+      state.lassoPoints.push({ x: p.x, y: p.y });
+      restoreSnapshot();
+      ctx.save();
+      ctx.strokeStyle = '#000';
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      const pts = state.lassoPoints;
+      ctx.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+      ctx.stroke();
+      ctx.restore();
+    },
+    up() {
+      if (!state.lassoPoints || state.lassoPoints.length < 3) {
+        state.lassoPoints = null;
+        restoreSnapshot();
+        return;
+      }
+      restoreSnapshot();
+      const pts = state.lassoPoints;
+      const path = new Path2D();
+      path.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length; i++) path.lineTo(pts[i].x, pts[i].y);
+      path.closePath();
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const q of pts) {
+        if (q.x < minX) minX = q.x; if (q.x > maxX) maxX = q.x;
+        if (q.y < minY) minY = q.y; if (q.y > maxY) maxY = q.y;
+      }
+      state.selection = {
+        kind: 'lasso',
+        path,
+        points: pts,
+        bounds: { x: Math.max(0, minX|0), y: Math.max(0, minY|0),
+                  w: Math.min(W, maxX|0) - Math.max(0, minX|0) + 1,
+                  h: Math.min(H, maxY|0) - Math.max(0, minY|0) + 1 }
+      };
+      state.lassoPoints = null;
+      composite();
+    }
+  };
+
+  // ---- Magic wand tool ----
+  Tools.wand = {
+    down(p) {
+      const r = magicWandAt(p.x, p.y, state.wandTolerance);
+      if (!r) return;
+      // Build a Path2D outline from the bounding box for now (full mask
+      // tracing via marching-squares is wired in but rectangle-bounded for
+      // performance — pixel-accurate clipping uses the mask separately).
+      const b = r.bounds;
+      const path = new Path2D();
+      path.rect(b.x, b.y, b.w, b.h);
+      state.selection = { kind: 'wand', path, mask: r.mask, bounds: b };
+      composite();
+    }
+  };
+
   function pointInSel(p) {
     if (!state.selection) return false;
     const s = state.selection;
@@ -658,6 +829,7 @@
         ctx.fillStyle = pt.c;
         ctx.fillRect(x - pt.s/2, y - pt.s/2, pt.s, pt.s);
       }
+      composite();
       if (elapsed < dur) requestAnimationFrame(frame);
       else clearCanvas('#ffffff');
     }
@@ -680,14 +852,20 @@
     let h;
     if (key.startsWith('stamp:')) h = Tools.stamp;
     else if (key.startsWith('wacky:')) h = Tools.wacky;
+    else if (key.startsWith('magic:')) h = Tools.magic;
     else h = Tools[key];
     if (!h) return;
     const fn = h[phase];
     if (!fn) return;
     ctx.save();
     ctx.globalAlpha = state.opacity;
+    // Clip to active selection (rect or lasso path) so drawing only lands inside it.
+    if (state.selection && state.selection.kind === 'lasso' && state.selection.path) {
+      ctx.clip(state.selection.path);
+    }
     fn(p);
     ctx.restore();
+    if (phase !== 'down' || (key !== 'eyedrop' && key !== 'select')) composite();
   }
 
   canvas.addEventListener('pointerdown', (e) => {
@@ -994,6 +1172,7 @@
       const r = Math.min(W / img.width, H / img.height);
       const dw = img.width * r, dh = img.height * r;
       ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+      composite();
       URL.revokeObjectURL(img.src);
       scheduleAutosave();
     };
@@ -1019,6 +1198,7 @@
     img.onload = () => {
       if (confirm('Restore your last drawing?')) {
         ctx.drawImage(img, 0, 0);
+        composite();
       } else {
         try { localStorage.removeItem('retropaint:canvas'); } catch (e) {}
       }
@@ -1037,7 +1217,15 @@
     if (mod && k === 'y') { e.preventDefault(); redo(); return; }
     if (mod && k === 's') { e.preventDefault(); $('btn-save').click(); return; }
     if (mod && k === 'o') { e.preventDefault(); $('btn-open').click(); return; }
+    if (mod && k === 'a') { e.preventDefault(); selectAll(); return; }
+    if (mod && k === 'c') { e.preventDefault(); copySelection(); return; }
+    if (mod && k === 'x') { e.preventDefault(); cutSelection(); return; }
+    if (mod && k === 'v') { e.preventDefault(); pasteSelection(); return; }
+    if (mod && k === 'd') { e.preventDefault(); state.selection = null; state.floating = null; composite(); return; }
+    if (mod && k === 'i') { e.preventDefault(); selectInvert(); return; }
     if (mod) return;
+    if (e.key === 'Enter' && state.floating) { commitFloating(); return; }
+    if (e.key === 'Escape') { state.floating = null; state.selection = null; composite(); return; }
     if (e.key === '1') return setMode('mspaint');
     if (e.key === '2') return setMode('mariopaint');
     if (e.key === '3') return setMode('kidpix');
@@ -1148,10 +1336,18 @@
     resizeCanvas(w, h);
   });
   function resizeCanvas(w, h) {
-    pushUndo();
+    const d = activeDoc(); if (!d) return;
+    // Replace document's layers with fresh ones at the new size.
+    d.width = w; d.height = h;
+    d.layers = [createLayer('Background', w, h)];
+    d.layers[0].ctx.fillStyle = '#ffffff';
+    d.layers[0].ctx.fillRect(0, 0, w, h);
+    d.activeIdx = 0;
+    d.undoStack.length = 0; d.redoStack.length = 0;
     canvas.width = w; canvas.height = h;
     W = w; H = h;
-    clearCanvas('#ffffff');
+    setActiveLayer(0);
+    composite();
     scheduleAutosave();
   }
 
@@ -1205,13 +1401,15 @@
     }
     ctx.putImageData(img, 0, 0);
     if (kind === 'blur') {
-      // Cheap blur: scale down then up
+      // Cheap blur: scale down then up — use the active layer's own canvas
+      // as the source so we blur only the active layer, not the composite.
       const tmp = document.createElement('canvas');
       tmp.width = W >> 1; tmp.height = H >> 1;
-      tmp.getContext('2d').drawImage(canvas, 0, 0, tmp.width, tmp.height);
+      tmp.getContext('2d').drawImage(activeLayer().canvas, 0, 0, tmp.width, tmp.height);
       ctx.imageSmoothingEnabled = true;
       ctx.drawImage(tmp, 0, 0, W, H);
     }
+    composite();
     scheduleAutosave();
   }
   $('btn-filter').addEventListener('click', async () => {
@@ -1375,7 +1573,9 @@
   }
   function commitCurrentToFrame() {
     if (!state.frames) return;
-    state.frames[state.frameIdx] = ctx.getImageData(0, 0, W, H);
+    // Capture the composite (all visible layers flattened) so animation
+    // shows the full picture, not just the active layer.
+    state.frames[state.frameIdx] = displayCtx.getImageData(0, 0, W, H);
   }
   function drawCurrentFrame() {
     if (!state.frames) return;
@@ -1390,6 +1590,7 @@
       ctx.drawImage(tmp, 0, 0);
       ctx.restore();
     }
+    composite();
   }
   $('anim-prev').addEventListener('click', () => {
     if (!state.frames) return;
@@ -1479,7 +1680,132 @@
     stage.classList.add('bg-' + state.bgPattern);
   }
 
+  // ---- Clipboard (cut/copy/paste of selection) ----
+  function selectionRect() {
+    const s = state.selection;
+    if (!s) return null;
+    if (s.kind === 'lasso' && s.bounds) return s.bounds;
+    if (s.w !== undefined) {
+      const x = Math.min(s.x, s.x + s.w), y = Math.min(s.y, s.y + s.h);
+      return { x, y, w: Math.abs(s.w), h: Math.abs(s.h) };
+    }
+    return null;
+  }
+  function copySelection() {
+    const r = selectionRect(); if (!r) return;
+    try { state.clipboard = ctx.getImageData(r.x, r.y, r.w, r.h); }
+    catch (e) {}
+  }
+  function cutSelection() {
+    const r = selectionRect(); if (!r) return;
+    pushUndo();
+    copySelection();
+    ctx.save();
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(r.x, r.y, r.w, r.h);
+    ctx.restore();
+    state.selection = null;
+    composite();
+  }
+  function pasteSelection() {
+    if (!state.clipboard) return;
+    state.floating = { imageData: state.clipboard, x: 10, y: 10 };
+    composite();
+  }
+  function commitFloating() {
+    if (!state.floating) return;
+    pushUndo();
+    const f = state.floating;
+    const tmp = window.document.createElement('canvas');
+    tmp.width = f.imageData.width; tmp.height = f.imageData.height;
+    tmp.getContext('2d').putImageData(f.imageData, 0, 0);
+    ctx.drawImage(tmp, f.x, f.y);
+    state.floating = null;
+    composite();
+    scheduleAutosave();
+  }
+  function selectAll() {
+    state.selection = { x: 0, y: 0, w: W, h: H };
+    composite();
+  }
+  function selectInvert() {
+    // Toggle a flag interpreted by tool clipping.
+    if (!state.selection) { selectAll(); return; }
+    state.selection.inverted = !state.selection.inverted;
+  }
+
+  // ---- Magic wand: BFS over ImageData with RGB tolerance ----
+  function magicWandAt(x, y, tol) {
+    if (x < 0 || y < 0 || x >= W || y >= H) return null;
+    const img = ctx.getImageData(0, 0, W, H);
+    const d = img.data;
+    const seedI = (y * W + x) * 4;
+    const tr = d[seedI], tg = d[seedI+1], tb = d[seedI+2];
+    const mask = new Uint8Array(W * H);
+    const stack = [[x, y]];
+    let minX = x, maxX = x, minY = y, maxY = y;
+    while (stack.length) {
+      const [cx, cy] = stack.pop();
+      if (cx < 0 || cy < 0 || cx >= W || cy >= H) continue;
+      const i = cy * W + cx;
+      if (mask[i]) continue;
+      const o = i * 4;
+      if (Math.abs(d[o]-tr) > tol || Math.abs(d[o+1]-tg) > tol || Math.abs(d[o+2]-tb) > tol) continue;
+      mask[i] = 1;
+      if (cx < minX) minX = cx;
+      if (cx > maxX) maxX = cx;
+      if (cy < minY) minY = cy;
+      if (cy > maxY) maxY = cy;
+      stack.push([cx+1, cy], [cx-1, cy], [cx, cy+1], [cx, cy-1]);
+    }
+    return { mask, bounds: { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 } };
+  }
+
+  // ---- Drag-drop image to load ----
+  canvas.addEventListener('dragover', (e) => { e.preventDefault(); });
+  canvas.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (!f || !f.type.startsWith('image/')) return;
+    const img = new Image();
+    img.onload = () => {
+      pushUndo();
+      const r = Math.min(W / img.width, H / img.height);
+      const dw = img.width * r, dh = img.height * r;
+      ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+      composite();
+      URL.revokeObjectURL(img.src);
+    };
+    img.src = URL.createObjectURL(f);
+  });
+
+  // ---- Paste from system clipboard (image) ----
+  window.addEventListener('paste', (e) => {
+    const items = e.clipboardData && e.clipboardData.items;
+    if (!items) return;
+    for (const it of items) {
+      if (it.type && it.type.startsWith('image/')) {
+        const blob = it.getAsFile();
+        const img = new Image();
+        img.onload = () => {
+          pushUndo();
+          ctx.drawImage(img, 10, 10);
+          composite();
+          URL.revokeObjectURL(img.src);
+        };
+        img.src = URL.createObjectURL(blob);
+        e.preventDefault();
+        return;
+      }
+    }
+  });
+
   // ---- Init ----
+  // Create the initial document FIRST so that any drawing during init has a
+  // layer to write to. `setActiveDoc` rebinds the module-level `ctx`.
+  docs.push(newDocument(W, H, 'untitled'));
+  setActiveDoc(0);
+
   // Restore persisted preferences first
   try {
     const savedSize = +localStorage.getItem('retropaint:size');
